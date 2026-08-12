@@ -27,6 +27,30 @@ export class WarehouseClient {
       req.headers.Authorization = `Bearer ${this.jwt}`;
       return req;
     });
+
+    // Handles JWT expiry mid-session (e.g. auto-sync running past the
+    // access token's lifetime). On a 401, force a fresh /connect and retry
+    // the original request exactly once — a `_retried` flag prevents an
+    // infinite loop if the token is somehow still invalid after refresh.
+    this.api.interceptors.response.use(
+      (res) => res,
+      async (error) => {
+        const original = error.config as (typeof error.config) & { _retried?: boolean };
+        if (
+          axios.isAxiosError(error) &&
+          error.response?.status === 401 &&
+          original &&
+          !original._retried
+        ) {
+          original._retried = true;
+          this.jwt = null;
+          await this.authenticate();
+          original.headers.Authorization = `Bearer ${this.jwt}`;
+          return this.api.request(original);
+        }
+        return Promise.reject(error);
+      }
+    );
   }
 
   private async authenticate(): Promise<void> {
