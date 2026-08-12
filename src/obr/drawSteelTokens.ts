@@ -41,15 +41,16 @@ export function readDstHeroData(item: Item): DstHeroTokenData | undefined {
 }
 
 /**
- * Patches only the fields we own syncing for (stamina/resource/recoveries/surges).
- * Never touches heroicResourceName, notes, heroicResourceButton, gmOnly — those
- * are DST-only settings with no Forge Steel equivalent.
+ * Patches only the fields we own syncing for (stamina/resource/recoveries/surges,
+ * plus heroicResourceName now that Forge Steel supplies it too). Never touches
+ * notes, heroicResourceButton, gmOnly — those remain DST-only settings with no
+ * Forge Steel equivalent.
  */
 export async function writeDstHeroStats(
   itemId: string,
   patch: Pick<
     DstHeroTokenData,
-    "stamina" | "staminaMaximum" | "temporaryStamina" | "heroicResource" | "recoveries" | "surges"
+    "stamina" | "staminaMaximum" | "temporaryStamina" | "heroicResource" | "heroicResourceName" | "recoveries" | "surges"
   >
 ): Promise<void> {
   await OBR.scene.items.updateItems([itemId], (items) => {

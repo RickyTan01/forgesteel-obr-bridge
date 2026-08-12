@@ -15,6 +15,19 @@ export type HeroStateFields = {
   surges: number;
 };
 
+/**
+ * Computed by Forge Steel's own HeroLogic and included as extra fields on
+ * the hero object since RickyTan01/forgesteel's warehouse-service.ts putHero
+ * change — not part of the Hero/HeroState model itself, so the Warehouse's
+ * schemaless storage just round-trips them untouched.
+ */
+export type HeroDerivedFields = {
+  staminaMax: number;
+  recoveriesMax: number;
+  heroicResourceValue?: number;
+  heroicResourceName?: string;
+};
+
 export class WarehouseClient {
   private api: AxiosInstance;
   private jwt: string | null = null;
@@ -97,6 +110,15 @@ export class WarehouseClient {
       staminaTemp: hero.state.staminaTemp,
       recoveriesUsed: hero.state.recoveriesUsed,
       surges: hero.state.surges,
+    };
+  }
+
+  extractDerivedFields(hero: HeroDerivedFields): HeroDerivedFields {
+    return {
+      staminaMax: hero.staminaMax,
+      recoveriesMax: hero.recoveriesMax,
+      heroicResourceValue: hero.heroicResourceValue,
+      heroicResourceName: hero.heroicResourceName,
     };
   }
 

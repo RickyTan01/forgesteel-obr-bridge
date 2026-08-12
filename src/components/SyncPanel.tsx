@@ -5,7 +5,6 @@ import { WarehouseConfig } from "../warehouse/warehouseConfig";
 import { getHeroTokens, writeDstHeroStats } from "../obr/drawSteelTokens";
 import { readBridgeLink, writeBridgeLink, findAutoMatch, BridgeLink } from "../obr/bridgeLink";
 import { getActivePoolLabel, setActivePoolLabel } from "../obr/roomPool";
-import { computeMaxStamina, computeMaxRecoveries } from "../logic/heroDerived";
 import { heroStateToDstFields } from "../logic/conversion";
 import { getSyncIntervalSeconds, setSyncIntervalSeconds } from "../warehouse/syncPreferences";
 
@@ -74,9 +73,8 @@ export function SyncPanel({ config, onOpenSettings }: Props) {
       try {
         const hero = await client.getFullHero(row.link.heroId);
         const state = client.extractStateFields(hero);
-        const maxStamina = computeMaxStamina(hero);
-        const maxRecoveries = computeMaxRecoveries(hero);
-        const dstFields = heroStateToDstFields(state, maxStamina, maxRecoveries);
+        const derived = client.extractDerivedFields(hero);
+        const dstFields = heroStateToDstFields(state, derived);
         await writeDstHeroStats(row.item.id, dstFields);
         ok++;
       } catch (err) {

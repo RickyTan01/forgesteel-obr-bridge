@@ -32,31 +32,30 @@ only, for now — see "Not built yet" below.
 
 ## Not built yet — real gaps, not polish items
 
-1. **`heroDerived.ts` is a partial port.** Forge Steel doesn't store max
-   stamina/max recoveries — they're computed from kit + echelon + bonus
-   features. The current port only handles kit × echelon; it does **not**
-   walk `FeatureType.Bonus` features that modify Stamina/Recoveries. Any hero
-   with such a feature gets a wrong number until this is finished. Re-check
-   against `andyaiken/forgesteel`'s `hero-logic.ts` on every use — this is the
-   single most likely thing to silently drift out of correctness.
-2. **One-way only.** `dstFieldsToHeroStatePatch` exists in `conversion.ts`
+1. **One-way only.** `dstFieldsToHeroStatePatch` exists in `conversion.ts`
    but nothing calls it — there's no write-back to the Warehouse yet. Adding
    it means confronting the GET-modify-PUT race we already found and fixed
    once in Forge Steel's own `persistHero` (see prior TanServer chat history)
    — the Warehouse PUT has no versioning, so a naive write-back can clobber a
    concurrent edit from the Forge Steel side.
-3. **No auth/token expiry handling.** Forge Steel's own client refreshes the
-   JWT on a 401; this client re-authenticates blindly on first use per
-   `WarehouseClient` instance and doesn't retry on expiry mid-session.
-4. **Ambiguous auto-link has no UI treatment yet** — `findAutoMatch` returns
+2. **Ambiguous auto-link has no UI treatment yet** — `findAutoMatch` returns
    `"ambiguous"` but `SyncPanel` currently just falls through to the manual
    picker without telling the user *why* (multiple heroes shared that name).
 
+Max stamina/recoveries and the heroic resource value/name are no longer
+derived bridge-side — `RickyTan01/forgesteel`'s `warehouse-service.ts` now
+computes them with its own `HeroLogic` and includes `staminaMax`,
+`recoveriesMax`, `heroicResourceValue`, `heroicResourceName` as extra fields
+on the hero object when it PUTs to the Warehouse (schemaless storage, so it
+round-trips them untouched). The bridge just reads them via
+`WarehouseClient.extractDerivedFields` — see `HeroDerivedFields` in
+`src/warehouse/warehouseClient.ts`. The old partial kit×echelon port
+(`heroDerived.ts`) has been deleted.
+
 ## Next steps
 
-- Finish the bonus-feature walk in `heroDerived.ts`
 - Decide: is session-start-only sufficient, or is live sync worth the
-  race-condition handling in point 2 above?
+  race-condition handling in point 1 above?
 - Build/deploy pipeline: same pattern as the Forge Steel fork — GitHub
   Actions → GHCR → Compose Manager Plus on Unraid, proxied via NPM at
   something like `fs-bridge.tanserver.uk`, added to Owlbear Rodeo as a
