@@ -4,26 +4,40 @@ import type { DstHeroTokenData } from "../obr/drawSteelTokens";
 /**
  * Forge Steel → Draw Steel Tools.
  * FS stores damage-taken / recoveries-used; DST stores current-value /
- * recoveries-remaining. Needs the hero's computed maximums, which Forge
- * Steel now includes directly on the hero object (see HeroDerivedFields)
- * rather than the bridge deriving them itself.
+ * recoveries-remaining. staminaMax/recoveriesMax/heroicResource* are NOT
+ * computed here — they come straight from HeroDerivedFields, which Forge
+ * Steel itself attaches when saving. If a hero predates that change, these
+ * are undefined and the corresponding DST fields are simply omitted rather
+ * than synced as wrong/zero values (undefined - number would be NaN).
  */
 export function heroStateToDstFields(
   state: HeroStateFields,
   derived: HeroDerivedFields
-): Pick<
-  DstHeroTokenData,
-  "stamina" | "staminaMaximum" | "temporaryStamina" | "recoveries" | "surges" | "heroicResource" | "heroicResourceName"
+): Partial<
+  Pick<
+    DstHeroTokenData,
+    "stamina" | "staminaMaximum" | "temporaryStamina" | "recoveries" | "surges" | "heroicResource" | "heroicResourceName"
+  >
 > {
   const fields: ReturnType<typeof heroStateToDstFields> = {
-    stamina: derived.staminaMax - state.staminaDamage + state.staminaTemp,
-    staminaMaximum: derived.staminaMax,
     temporaryStamina: state.staminaTemp,
-    recoveries: derived.recoveriesMax - state.recoveriesUsed,
     surges: state.surges,
   };
-  if (derived.heroicResourceValue !== undefined) fields.heroicResource = derived.heroicResourceValue;
-  if (derived.heroicResourceName !== undefined) fields.heroicResourceName = derived.heroicResourceName;
+
+  if (derived.staminaMax !== undefined) {
+    fields.staminaMaximum = derived.staminaMax;
+    fields.stamina = derived.staminaMax - state.staminaDamage + state.staminaTemp;
+  }
+  if (derived.recoveriesMax !== undefined) {
+    fields.recoveries = derived.recoveriesMax - state.recoveriesUsed;
+  }
+  if (derived.heroicResourceValue !== undefined) {
+    fields.heroicResource = derived.heroicResourceValue;
+  }
+  if (derived.heroicResourceName !== undefined) {
+    fields.heroicResourceName = derived.heroicResourceName;
+  }
+
   return fields;
 }
 

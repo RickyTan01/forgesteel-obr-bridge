@@ -48,9 +48,11 @@ export function readDstHeroData(item: Item): DstHeroTokenData | undefined {
  */
 export async function writeDstHeroStats(
   itemId: string,
-  patch: Pick<
-    DstHeroTokenData,
-    "stamina" | "staminaMaximum" | "temporaryStamina" | "heroicResource" | "heroicResourceName" | "recoveries" | "surges"
+  patch: Partial<
+    Pick<
+      DstHeroTokenData,
+      "stamina" | "staminaMaximum" | "temporaryStamina" | "heroicResource" | "heroicResourceName" | "recoveries" | "surges"
+    >
   >
 ): Promise<void> {
   await OBR.scene.items.updateItems([itemId], (items) => {

@@ -19,11 +19,13 @@ export type HeroStateFields = {
  * Computed by Forge Steel's own HeroLogic and included as extra fields on
  * the hero object since RickyTan01/forgesteel's warehouse-service.ts putHero
  * change — not part of the Hero/HeroState model itself, so the Warehouse's
- * schemaless storage just round-trips them untouched.
+ * schemaless storage just round-trips them untouched. All optional: any
+ * hero saved before that change landed won't have them, so callers must
+ * treat their absence as "unknown", not "zero".
  */
 export type HeroDerivedFields = {
-  staminaMax: number;
-  recoveriesMax: number;
+  staminaMax?: number;
+  recoveriesMax?: number;
   heroicResourceValue?: number;
   heroicResourceName?: string;
 };
@@ -113,6 +115,12 @@ export class WarehouseClient {
     };
   }
 
+  /**
+   * These live at the top level of the hero object, not under `.state` —
+   * that's Forge Steel's own convention, matched here rather than renamed,
+   * so the shape stays recognizable against the Warehouse's raw JSON when
+   * debugging.
+   */
   extractDerivedFields(hero: HeroDerivedFields): HeroDerivedFields {
     return {
       staminaMax: hero.staminaMax,

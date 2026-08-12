@@ -75,6 +75,11 @@ export function SyncPanel({ config, onOpenSettings }: Props) {
         const state = client.extractStateFields(hero);
         const derived = client.extractDerivedFields(hero);
         const dstFields = heroStateToDstFields(state, derived);
+        // Only defined keys are ever included (see heroStateToDstFields) —
+        // writeDstHeroStats merges onto existing token metadata, so a hero
+        // that predates the Forge Steel putHero change simply leaves
+        // stamina/recoveries/heroicResource untouched rather than zeroing
+        // them out.
         await writeDstHeroStats(row.item.id, dstFields);
         ok++;
       } catch (err) {
