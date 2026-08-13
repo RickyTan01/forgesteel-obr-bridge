@@ -5,9 +5,10 @@ import { WarehouseConfig } from "../warehouse/warehouseConfig";
 import { getHeroTokens, writeDstHeroStats } from "../obr/drawSteelTokens";
 import { readBridgeLink, writeBridgeLink, findAutoMatch, BridgeLink } from "../obr/bridgeLink";
 import { getActivePoolLabel, setActivePoolLabel } from "../obr/roomPool";
-import { setLastSyncedAt as writeLastSyncedAt } from "../obr/syncStatus";
+import { getLastSyncedAt, setLastSyncedAt as writeLastSyncedAt } from "../obr/syncStatus";
 import { heroStateToDstFields } from "../logic/conversion";
 import { getSyncIntervalSeconds, setSyncIntervalSeconds } from "../warehouse/syncPreferences";
+import { formatRelative } from "../formatRelative";
 
 /** Off, plus a spread from "fast enough to feel live" to "basically just periodic housekeeping". */
 const INTERVAL_OPTIONS = [
@@ -36,6 +37,7 @@ export function SyncPanel({ config, onOpenSettings }: Props) {
   const [syncing, setSyncing] = useState(false);
   const [intervalSeconds, setIntervalSecondsState] = useState(getSyncIntervalSeconds());
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const [now, setNow] = useState(() => Date.now());
 
   const client = new WarehouseClient(config);
 
@@ -47,14 +49,16 @@ export function SyncPanel({ config, onOpenSettings }: Props) {
   }, [rows]);
 
   const refresh = async () => {
-    const [label, tokens, heroSummaries] = await Promise.all([
+    const [label, tokens, heroSummaries, synced] = await Promise.all([
       getActivePoolLabel(),
       getHeroTokens(),
       client.getHeroSummaries().catch(() => [] as HeroSummary[]),
+      getLastSyncedAt(),
     ]);
     setPoolLabel(label ?? "");
     setHeroes(heroSummaries);
     setRows(tokens.map((item) => ({ item, link: readBridgeLink(item) })));
+    setLastSyncedAt(synced);
   };
 
   // Local-only rescan — no Warehouse call. Reads whatever hero tokens exist
@@ -69,18 +73,40 @@ export function SyncPanel({ config, onOpenSettings }: Props) {
     setRows(tokens.map((item) => ({ item, link: readBridgeLink(item) })));
   };
 
+  // Room metadata changes when a sync writes the shared timestamp (or the
+  // pool label changes) — refetch just those two, not the full heroes list.
+  const refreshRoomMetaOnly = async () => {
+    const [label, synced] = await Promise.all([getActivePoolLabel(), getLastSyncedAt()]);
+    setPoolLabel(label ?? "");
+    setLastSyncedAt(synced);
+  };
+
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
+    let unsubscribeItems: (() => void) | undefined;
+    let unsubscribeRoom: (() => void) | undefined;
     OBR.onReady(() => {
       refresh();
       // Fires on every scene mutation — refreshTokensOnly is cheap/local,
       // so this is safe to run on each one rather than debouncing.
-      unsubscribe = OBR.scene.items.onChange(() => {
+      unsubscribeItems = OBR.scene.items.onChange(() => {
         refreshTokensOnly();
       });
+      unsubscribeRoom = OBR.room.onMetadataChange(() => {
+        refreshRoomMetaOnly();
+      });
     });
-    return () => unsubscribe?.();
+    return () => {
+      unsubscribeItems?.();
+      unsubscribeRoom?.();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Ticks the last-synced display forward in real time, same as PlayerView
+  // — purely local, no OBR/network call, just a re-render trigger.
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
   }, []);
 
   const syncRows = useCallback(async (targetRows: TokenRow[]) => {
@@ -226,12 +252,11 @@ export function SyncPanel({ config, onOpenSettings }: Props) {
         </button>
       </div>
 
-      {status && (
-        <div className="status">
-          {status}
-          {lastSyncedAt && ` (${lastSyncedAt.toLocaleTimeString()})`}
-        </div>
-      )}
+      <div className="last-synced">
+        {lastSyncedAt ? `Last synced ${formatRelative(lastSyncedAt, now)}` : "Not synced yet"}
+      </div>
+
+      {status && <div className="status">{status}</div>}
     </div>
   );
 }
