@@ -56,10 +56,29 @@ export function SyncPanel({ config, onOpenSettings }: Props) {
     setRows(tokens.map((item) => ({ item, link: readBridgeLink(item) })));
   };
 
+  // Local-only rescan — no Warehouse call. Reads whatever hero tokens exist
+  // on the scene right now and preserves each one's existing link. This is
+  // what OBR's scene-change listener calls, since that event fires on
+  // EVERY scene mutation (moving a token, resizing, etc.), not just adding
+  // one — re-fetching the hero list from the Warehouse on every single one
+  // of those would spam it for no reason. The hero list itself only needs
+  // refreshing when the panel is opened/reopened (see `refresh` above).
+  const refreshTokensOnly = async () => {
+    const tokens = await getHeroTokens();
+    setRows(tokens.map((item) => ({ item, link: readBridgeLink(item) })));
+  };
+
   useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
     OBR.onReady(() => {
       refresh();
+      // Fires on every scene mutation — refreshTokensOnly is cheap/local,
+      // so this is safe to run on each one rather than debouncing.
+      unsubscribe = OBR.scene.items.onChange(() => {
+        refreshTokensOnly();
+      });
     });
+    return () => unsubscribe?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
