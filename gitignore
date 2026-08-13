@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-pages/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Editor/OS
+.DS_Store
+.vscode/
+.idea/
+
+# Env files (never commit real secrets, even local ones)
+.env
+.env.local
