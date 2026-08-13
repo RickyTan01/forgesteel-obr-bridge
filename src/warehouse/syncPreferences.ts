@@ -1,4 +1,4 @@
-const STORAGE_KEY = "tanserver-bridge/sync-interval-seconds";
+const STORAGE_KEY = "forgesteel-warehouse-bridge/sync-interval-seconds";
 
 /** 0 = auto-sync disabled, manual button only. */
 export function getSyncIntervalSeconds(): number {

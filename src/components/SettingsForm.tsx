@@ -8,7 +8,7 @@ type Props = {
 };
 
 export function SettingsForm({ initial, onSaved }: Props) {
-  const [host, setHost] = useState(initial?.host ?? "https://fs-warehouse.tanserver.uk");
+  const [host, setHost] = useState(initial?.host ?? "");
   const [apiToken, setApiToken] = useState(initial?.apiToken ?? "");
   const [showToken, setShowToken] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
@@ -33,7 +33,11 @@ export function SettingsForm({ initial, onSaved }: Props) {
     <div className="settings-form">
       <label>
         <span className="label">Warehouse Host</span>
-        <input value={host} onChange={(e) => setHost(e.target.value)} />
+        <input
+          value={host}
+          onChange={(e) => setHost(e.target.value)}
+          placeholder="fs-warehouse address"
+        />
       </label>
 
       <label>

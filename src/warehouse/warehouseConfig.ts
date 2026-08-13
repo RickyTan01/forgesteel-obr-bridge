@@ -1,7 +1,7 @@
-const STORAGE_KEY = "tanserver-bridge/warehouse-config";
+const STORAGE_KEY = "forgesteel-warehouse-bridge/warehouse-config";
 
 export type WarehouseConfig = {
-  host: string; // e.g. https://fs-warehouse.tanserver.uk
+  host: string;
   apiToken: string;
 };
 
