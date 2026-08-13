@@ -5,6 +5,7 @@ import { WarehouseConfig } from "../warehouse/warehouseConfig";
 import { getHeroTokens, writeDstHeroStats } from "../obr/drawSteelTokens";
 import { readBridgeLink, writeBridgeLink, findAutoMatch, BridgeLink } from "../obr/bridgeLink";
 import { getActivePoolLabel, setActivePoolLabel } from "../obr/roomPool";
+import { setLastSyncedAt as writeLastSyncedAt } from "../obr/syncStatus";
 import { heroStateToDstFields } from "../logic/conversion";
 import { getSyncIntervalSeconds, setSyncIntervalSeconds } from "../warehouse/syncPreferences";
 
@@ -108,7 +109,14 @@ export function SyncPanel({ config, onOpenSettings }: Props) {
     }
 
     setStatus(`Synced ${ok} token${ok === 1 ? "" : "s"}${failed ? `, ${failed} failed` : ""}.`);
-    setLastSyncedAt(new Date());
+    const now = new Date();
+    setLastSyncedAt(now);
+    if (ok > 0) {
+      // Room-wide, so players can see it too — only written on a run that
+      // actually changed something, not on a run that touched zero tokens
+      // (e.g. everything failed, or nothing was linked).
+      writeLastSyncedAt(now).catch((err) => console.error("Failed to write last-synced timestamp", err));
+    }
     setSyncing(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config.host, config.apiToken]);
