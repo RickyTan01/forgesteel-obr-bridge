@@ -7,8 +7,10 @@ import { getLastSyncedAt } from "../obr/syncStatus";
 
 type TokenStatus = { name: string; linked: boolean };
 
-function formatRelative(date: Date): string {
-  const seconds = Math.round((Date.now() - date.getTime()) / 1000);
+function formatRelative(date: Date, now: number): string {
+  const seconds = Math.round((now - date.getTime()) / 1000);
+  if (seconds < 16) return "Less than 15s ago";
+  if (seconds < 31) return "Less than 30s ago";
   if (seconds < 60) return "just now";
   const minutes = Math.round(seconds / 60);
   if (minutes < 60) return `${minutes}m ago`;
@@ -20,6 +22,11 @@ export function PlayerView() {
   const [poolLabel, setPoolLabel] = useState<string | undefined>();
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [tokens, setTokens] = useState<TokenStatus[]>([]);
+  // Purely local — re-renders the relative-time text every second so the
+  // 15s/30s buckets are actually visible in real time, not just correct
+  // whenever a scene/room change happens to trigger a re-render anyway. No
+  // OBR or network call involved, just a state tick.
+  const [now, setNow] = useState(() => Date.now());
 
   const refresh = async () => {
     const [label, synced, items] = await Promise.all([
@@ -47,6 +54,11 @@ export function PlayerView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   return (
     <div className="player-view">
       <p>This extension is set up by your GM.</p>
@@ -54,7 +66,7 @@ export function PlayerView() {
       {poolLabel && <p className="muted">Active pool: {poolLabel}</p>}
 
       <p className="muted">
-        {lastSyncedAt ? `Last synced ${formatRelative(lastSyncedAt)}` : "Not synced yet this session"}
+        {lastSyncedAt ? `Last synced ${formatRelative(lastSyncedAt, now)}` : "Not synced yet this session"}
       </p>
 
       {tokens.length > 0 && (
