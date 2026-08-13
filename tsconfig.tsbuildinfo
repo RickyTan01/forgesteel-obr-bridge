@@ -1,1 +1,0 @@
-{"root":["./src/app.tsx","./src/getpluginid.ts","./src/main.tsx","./src/components/settingsform.tsx","./src/components/syncpanel.tsx","./src/logic/conversion.ts","./src/obr/bridgelink.ts","./src/obr/drawsteeltokens.ts","./src/obr/roompool.ts","./src/warehouse/syncpreferences.ts","./src/warehouse/warehouseclient.ts","./src/warehouse/warehouseconfig.ts"],"version":"5.9.3"}
