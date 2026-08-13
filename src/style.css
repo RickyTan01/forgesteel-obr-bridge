@@ -98,3 +98,31 @@ button:disabled {
   color: #7d7e91;
   font-style: italic;
 }
+
+.player-view {
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.player-view .muted {
+  color: #7d7e91;
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.party-status {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+
+.party-row {
+  display: flex;
+  justify-content: space-between;
+  background: #33354420;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+}
