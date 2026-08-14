@@ -1,6 +1,5 @@
 import OBR from "@owlbear-rodeo/sdk";
 import { getPluginId } from "../getPluginId";
-import { toAbsoluteUrl } from "../toAbsoluteUrl";
 import { readBridgeLink } from "../obr/bridgeLink";
 import { WarehouseClient } from "../warehouse/warehouseClient";
 import { getWarehouseConfig } from "../warehouse/warehouseConfig";
@@ -24,10 +23,15 @@ export function registerConditionContextMenu(): void {
       icons: [
         {
           // BASE_URL (not a hardcoded "/") accounts for the GitHub Pages
-          // build being served from a subpath; toAbsoluteUrl accounts for
-          // OBR resolving this path against its own www.owlbear.rodeo
-          // origin rather than ours — see toAbsoluteUrl.ts.
-          icon: toAbsoluteUrl(`${import.meta.env.BASE_URL}action-icon.svg`),
+          // build being served from a subpath. No need to also resolve
+          // this to a fully-qualified URL (see toAbsoluteUrl.ts for why
+          // that matters for badge images) — confirmed by reading the SDK
+          // source directly: OBR.contextMenu.create() already runs its
+          // icons through normalizeIconPaths() internally
+          // (node_modules/@owlbear-rodeo/sdk/lib/common/normalize.js),
+          // unlike buildImage's ImageContent, which never gets that
+          // treatment at any SDK version.
+          icon: `${import.meta.env.BASE_URL}action-icon.svg`,
           label: "View Conditions",
           filter: {
             // Confirmed against owlbear-rodeo/initiative-tracker's own
