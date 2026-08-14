@@ -59,11 +59,8 @@ const BADGE_SPACING_FRACTION = BADGE_SIZE_FRACTION * 1.15;
 // the same reason. Provided art (user-supplied, 1024x1024 with an existing
 // alpha channel — no background removal needed); "generic" is the provided
 // "Surprised" icon repurposed as the Custom/Quick fallback, since Forge
-// Steel has no "Surprised" condition. The declared width/height in
-// buildBadgeItem is a logical size for grid/dpi math, not the source
-// file's real resolution (confirmed against kgbergman/conditionmarkers,
-// which does the same) — the browser downscales the real 1024x1024 image
-// to fit, so no resizing was needed either.
+// Steel has no "Surprised" condition.
+const ICON_SOURCE_PX = 1024;
 const ICON_BY_CONDITION_TYPE: Record<string, string> = {
   Bleeding: bleedingIcon,
   Dazed: dazedIcon,
@@ -128,36 +125,30 @@ function buildBadgeItem(token: Image, condition: HeroCondition, slot: number, sc
   const badgeSize = Math.min(tokenSize.width, tokenSize.height) * BADGE_SIZE_FRACTION;
   const spacing = badgeSize * (BADGE_SPACING_FRACTION / BADGE_SIZE_FRACTION);
 
-  // TEMPORARY: four size formulas in a row have all rendered oversized
-  // despite checking out algebraically each time — logging the actual raw
-  // inputs to find out which assumption about this token's real
-  // image/grid/scale values is wrong, instead of continuing to guess.
-  console.log("[FS Bridge] badge size debug", {
-    tokenImage: { width: token.image.width, height: token.image.height },
-    tokenGrid: token.grid,
-    tokenScale: token.scale,
-    tokenRotation: token.rotation,
-    tokenPosition: token.position,
-    sceneDpi,
-    computedTokenSize: tokenSize,
-  });
-
   // Reuse the token's own grid.dpi for the badge's grid (rather than
   // inventing a custom one) so it cancels out of the rendered-size formula
   // algebraically — size is then controlled purely by .scale(), computed
-  // from the token's own pixel dimensions directly. The previous attempt
-  // computed a custom per-badge dpi (solved from tokenWorldSize's formula,
-  // assuming scale stays at the builder's default {1,1}) and rendered
-  // roughly 20x too large — this sidesteps needing to trust that inverse
-  // computation at all, matching kgbergman/conditionmarkers' approach
-  // (reuse attached.grid, drive size via .scale()) more precisely instead
-  // of only in spirit.
+  // from the token's own pixel dimensions directly, matching
+  // kgbergman/conditionmarkers' approach (reuse attached.grid, drive size
+  // via .scale()). Every previous attempt at this rendered wildly
+  // oversized despite checking out algebraically by hand — root cause
+  // (found via a console warning OBR itself logs, not something dug out
+  // of the math): the declared ImageContent.width/height MUST match the
+  // real source file's actual pixel dimensions. "Declared size is just a
+  // logical value for grid math, independent of the real file" — the
+  // assumption every earlier attempt relied on, credited to
+  // kgbergman/conditionmarkers appearing to do the same — does not hold
+  // in general; it only happened to work there because their backend
+  // likely serves each marker image pre-sized to match. OBR logs
+  // "content width 64 does not match image width 1024 rendering will be
+  // wrong" when they diverge, which is exactly what every prior badge
+  // here did (all declared 64x64 against these 1024x1024 source files).
   const minTokenPixelDim = Math.min(token.image.width * token.scale.x, token.image.height * token.scale.y);
-  const badgeScale = (BADGE_SIZE_FRACTION * minTokenPixelDim) / 64;
+  const badgeScale = (BADGE_SIZE_FRACTION * minTokenPixelDim) / ICON_SOURCE_PX;
 
   const metadata: BadgeMetadata = { conditionId: condition.id, slot };
   return buildImage(
-    { width: 64, height: 64, mime: "image/png", url: iconFor(condition) },
+    { width: ICON_SOURCE_PX, height: ICON_SOURCE_PX, mime: "image/png", url: iconFor(condition) },
     token.grid
   )
     .scale({ x: badgeScale, y: badgeScale })
