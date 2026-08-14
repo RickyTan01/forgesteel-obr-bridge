@@ -1,5 +1,6 @@
 import OBR, { BoundingBox, Image, Item, buildImage, isImage } from "@owlbear-rodeo/sdk";
 import { getPluginId } from "../getPluginId";
+import { toAbsoluteUrl } from "../toAbsoluteUrl";
 import type { HeroCondition } from "../warehouse/warehouseClient";
 import { conditionDisplayName } from "../logic/conditionDisplay";
 
@@ -75,7 +76,8 @@ const ICON_BY_CONDITION_TYPE: Record<string, string> = {
 };
 
 function iconFor(condition: HeroCondition): string {
-  return ICON_BY_CONDITION_TYPE[condition.type] ?? genericIcon;
+  const path = ICON_BY_CONDITION_TYPE[condition.type] ?? genericIcon;
+  return toAbsoluteUrl(path);
 }
 
 function buildBadgeItem(token: Image, condition: HeroCondition, slot: number, bounds: BoundingBox): Item {

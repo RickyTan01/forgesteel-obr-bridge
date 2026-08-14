@@ -1,5 +1,6 @@
 import OBR from "@owlbear-rodeo/sdk";
 import { getPluginId } from "../getPluginId";
+import { toAbsoluteUrl } from "../toAbsoluteUrl";
 import { readBridgeLink } from "../obr/bridgeLink";
 import { WarehouseClient } from "../warehouse/warehouseClient";
 import { getWarehouseConfig } from "../warehouse/warehouseConfig";
@@ -22,7 +23,11 @@ export function registerConditionContextMenu(): void {
       id: MENU_ID,
       icons: [
         {
-          icon: "/action-icon.svg",
+          // BASE_URL (not a hardcoded "/") accounts for the GitHub Pages
+          // build being served from a subpath; toAbsoluteUrl accounts for
+          // OBR resolving this path against its own www.owlbear.rodeo
+          // origin rather than ours — see toAbsoluteUrl.ts.
+          icon: toAbsoluteUrl(`${import.meta.env.BASE_URL}action-icon.svg`),
           label: "View Conditions",
           filter: {
             // Confirmed against owlbear-rodeo/initiative-tracker's own
