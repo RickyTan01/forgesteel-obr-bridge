@@ -128,6 +128,20 @@ function buildBadgeItem(token: Image, condition: HeroCondition, slot: number, sc
   const badgeSize = Math.min(tokenSize.width, tokenSize.height) * BADGE_SIZE_FRACTION;
   const spacing = badgeSize * (BADGE_SPACING_FRACTION / BADGE_SIZE_FRACTION);
 
+  // TEMPORARY: four size formulas in a row have all rendered oversized
+  // despite checking out algebraically each time — logging the actual raw
+  // inputs to find out which assumption about this token's real
+  // image/grid/scale values is wrong, instead of continuing to guess.
+  console.log("[FS Bridge] badge size debug", {
+    tokenImage: { width: token.image.width, height: token.image.height },
+    tokenGrid: token.grid,
+    tokenScale: token.scale,
+    tokenRotation: token.rotation,
+    tokenPosition: token.position,
+    sceneDpi,
+    computedTokenSize: tokenSize,
+  });
+
   // Reuse the token's own grid.dpi for the badge's grid (rather than
   // inventing a custom one) so it cancels out of the rendered-size formula
   // algebraically — size is then controlled purely by .scale(), computed
