@@ -1,4 +1,4 @@
-import OBR, { Image, Item, buildImage, isImage } from "@owlbear-rodeo/sdk";
+import OBR, { Image, Item, Math2, Vector2, buildImage, isImage } from "@owlbear-rodeo/sdk";
 import { getPluginId } from "../getPluginId";
 import { toAbsoluteUrl } from "../toAbsoluteUrl";
 import type { HeroCondition } from "../warehouse/warehouseClient";
@@ -37,20 +37,16 @@ export type PairedToken = {
   conditions: HeroCondition[];
 };
 
-// Badge size, as a fraction of a grid cell (via the scene's own grid dpi —
-// world units per cell, a scene-level value unrelated to any one item).
-// Position is anchored to the token's own position/image/grid/scale (see
-// tokenWorldSize below) — properties of the token itself, unaffected by
-// whatever is attached to it. Deliberately NOT using
-// OBR.scene.items.getItemBounds(): that was tried first (matching the
-// pattern used by kgbergman/conditionmarkers' buildConditionMarker, which
-// sizes/positions off getItemBounds combined with .scale(token.scale) and
-// reusing token.grid) but produced badges far too small and far from the
-// token — getItemBounds appears to include the token's own attachments in
-// its returned box, so each pass's bounds were inflated by whatever badges
-// a PREVIOUS pass had already placed, compounding across passes.
-const BADGE_SIZE_GRID_FRACTION = 0.45;
-const BADGE_SPACING_GRID_FRACTION = BADGE_SIZE_GRID_FRACTION * 1.15;
+// Badge size, as a fraction of the TOKEN's own computed world size — not a
+// fraction of the scene's grid cell. Tried grid-cell-relative sizing first
+// and it rendered enormous: this specific token's own grid.dpi doesn't
+// correspond to a full scene grid cell (Draw Steel Tools' portrait/stat-
+// bubble tokens aren't necessarily sized at 1 cell), so a badge sized
+// against "a fraction of 1 full cell" can dwarf a token that itself renders
+// much smaller than that. Sizing against the token's own computed
+// dimensions instead (tokenWorldSize below) scales correctly regardless.
+const BADGE_SIZE_FRACTION = 0.3;
+const BADGE_SPACING_FRACTION = BADGE_SIZE_FRACTION * 1.15;
 
 // Static files, not inline data URIs or generated-at-runtime SVG — OBR's
 // item-image loader routes image URLs through its own fetch/CDN pipeline
@@ -86,44 +82,62 @@ function iconFor(condition: HeroCondition): string {
 }
 
 /**
- * The token's own rendered world-space width/height. cellWidth/cellHeight
- * is the token's own image expressed in grid cells (its own pixel
- * dimensions ÷ its own grid.dpi — a property of the token, independent of
- * everything else on the scene); multiplying by scale and the scene's grid
- * dpi (world units per cell) converts that into world units.
+ * These two mirror Draw Steel Tools' own token-overlay math exactly (see
+ * SeamusFinlayson/draw-steel-tools-2's
+ * src/background/overlays/mathHelpers.ts, getImageDimensions/
+ * getImageCenter) — needed because a token's declared `.position` is NOT
+ * necessarily its visual center. It's whatever point `grid.offset`
+ * designates as the anchor, which does not coincide with the image's own
+ * pixel-center for these DST-managed portrait/stat-bubble tokens.
+ * Confirmed live: treating `.position` as center placed badges far from
+ * the visible token (near an entirely different one on the same scene).
  */
 function tokenWorldSize(token: Image, sceneDpi: number): { width: number; height: number } {
-  const cellWidth = token.image.width / token.grid.dpi;
-  const cellHeight = token.image.height / token.grid.dpi;
+  const dpiScale = sceneDpi / token.grid.dpi;
   return {
-    width: cellWidth * token.scale.x * sceneDpi,
-    height: cellHeight * token.scale.y * sceneDpi,
+    width: Math.abs(token.image.width * dpiScale * token.scale.x),
+    height: Math.abs(token.image.height * dpiScale * token.scale.y),
   };
+}
+
+function tokenWorldCenter(token: Image, sceneDpi: number): Vector2 {
+  let center: Vector2 = { x: token.image.width / 2, y: token.image.height / 2 };
+  center = Math2.subtract(center, token.grid.offset);
+  center = Math2.multiply(center, sceneDpi / token.grid.dpi);
+  center = Math2.multiply(center, token.scale);
+  center = Math2.rotate(center, { x: 0, y: 0 }, token.rotation);
+  center = Math2.add(center, token.position);
+  return center;
 }
 
 /**
  * Left-to-right starting above the token's top-left corner, one slot per
  * badge, sitting entirely above the token — badge's bottom edge is flush
- * with the token's top edge rather than overlapping it. Assumes
- * token.position is the image's visual center, matching the default anchor
- * OBR uses for tokens uploaded through its own pipeline.
+ * with the token's top edge rather than overlapping it.
  */
 function badgePosition(token: Image, sceneDpi: number, badgeSize: number, spacing: number, slot: number) {
   const size = tokenWorldSize(token, sceneDpi);
-  const startX = token.position.x - size.width / 2 + badgeSize / 2;
-  const y = token.position.y - size.height / 2 - badgeSize / 2;
+  const center = tokenWorldCenter(token, sceneDpi);
+  const startX = center.x - size.width / 2 + badgeSize / 2;
+  const y = center.y - size.height / 2 - badgeSize / 2;
   return { x: startX + slot * spacing, y };
 }
 
 function buildBadgeItem(token: Image, condition: HeroCondition, slot: number, sceneDpi: number): Item {
-  const badgeSize = sceneDpi * BADGE_SIZE_GRID_FRACTION;
-  const spacing = sceneDpi * BADGE_SPACING_GRID_FRACTION;
-  const badgeDpi = 64 / BADGE_SIZE_GRID_FRACTION; // icons are 64x64 source pixels (see gen-badge-pngs.mjs)
+  const tokenSize = tokenWorldSize(token, sceneDpi);
+  const badgeSize = Math.min(tokenSize.width, tokenSize.height) * BADGE_SIZE_FRACTION;
+  const spacing = badgeSize * (BADGE_SPACING_FRACTION / BADGE_SIZE_FRACTION);
+  // Inverse of tokenWorldSize's formula, solved for the dpi that makes a
+  // declared 64x64 image (icons are referenced at a fixed logical size
+  // regardless of their real resolution — see the import comment below)
+  // render at exactly badgeSize world units, with scale left at the
+  // builder's default {1,1}.
+  const badgeGridDpi = (64 * sceneDpi) / badgeSize;
 
   const metadata: BadgeMetadata = { conditionId: condition.id, slot };
   return buildImage(
     { width: 64, height: 64, mime: "image/png", url: iconFor(condition) },
-    { dpi: badgeDpi, offset: { x: 32, y: 32 } }
+    { dpi: badgeGridDpi, offset: { x: 32, y: 32 } }
   )
     .position(badgePosition(token, sceneDpi, badgeSize, spacing, slot))
     .attachedTo(token.id)
