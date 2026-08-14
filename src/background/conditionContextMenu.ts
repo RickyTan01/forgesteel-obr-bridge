@@ -25,12 +25,11 @@ export function registerConditionContextMenu(): void {
           icon: "/action-icon.svg",
           label: "View Conditions",
           filter: {
-            // `null`, not `undefined` — the filter payload crosses a
-            // postMessage/schema-validated boundary, and `undefined` isn't
-            // valid JSON there. Our link metadata is always a BridgeLink
-            // object when present, never literally null, so "!= null" still
-            // means "key present".
-            every: [{ key: ["metadata", LINK_KEY], value: null, operator: "!=" }],
+            // Confirmed against owlbear-rodeo/initiative-tracker's own
+            // context menu filter (official, first-party): `value: undefined`
+            // checks "this metadata key is absent/undefined" — inverted here
+            // with operator "!=" to mean "key present", i.e. a paired token.
+            every: [{ key: ["metadata", LINK_KEY], value: undefined, operator: "!=" }],
           },
         },
       ],

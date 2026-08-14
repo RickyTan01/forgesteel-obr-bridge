@@ -1,4 +1,4 @@
-import OBR, { Image, Item, buildImage, isImage } from "@owlbear-rodeo/sdk";
+import OBR, { BoundingBox, Image, Item, buildImage, isImage } from "@owlbear-rodeo/sdk";
 import { getPluginId } from "../getPluginId";
 import type { HeroCondition } from "../warehouse/warehouseClient";
 import { conditionDisplayName } from "../logic/conditionDisplay";
@@ -16,12 +16,21 @@ export type PairedToken = {
   conditions: HeroCondition[];
 };
 
-// Badge visual size, as a fraction of one grid cell — independent of the
-// badge image's own pixel resolution (BADGE_IMAGE_PX below), which only
-// affects crispness.
-const BADGE_IMAGE_PX = 64;
-const BADGE_SIZE_GRID_FRACTION = 0.3;
-const BADGE_SPACING_GRID_FRACTION = BADGE_SIZE_GRID_FRACTION * 1.15;
+// Badge size, as a fraction of the token's own shorter side — computed from
+// both the token's image pixel dimensions (for the badge's own ImageContent)
+// and its actual on-scene bounds (for world-space position/spacing), with
+// the token's own scale/grid copied onto the badge builder. This mirrors
+// the pattern used by published OBR attachment extensions (e.g.
+// kgbergman/conditionmarkers' buildConditionMarker) rather than deriving a
+// world size from OBR.scene.grid.getDpi(), which turned out to be an
+// unreliable way to predict an item's actual rendered size.
+const BADGE_FRACTION = 0.3;
+const BADGE_SPACING_FRACTION = BADGE_FRACTION * 1.15;
+
+// Internal SVG drawing resolution — independent of the badge's declared
+// ImageContent width/height (which varies per token, see buildBadgeItem).
+// SVGs are vector/resolution-independent, so this only affects crispness.
+const BADGE_SVG_PX = 64;
 
 const GLYPH_OVERRIDES: Record<string, string> = {
   Bleeding: "Bl",
@@ -57,7 +66,7 @@ function buildBadgeSvgDataUri(condition: HeroCondition): string {
   const color = colorFor(condition);
   const fontSize = glyph.length > 1 ? 22 : 28;
   const svg =
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${BADGE_IMAGE_PX}" height="${BADGE_IMAGE_PX}" viewBox="0 0 ${BADGE_IMAGE_PX} ${BADGE_IMAGE_PX}">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${BADGE_SVG_PX}" height="${BADGE_SVG_PX}" viewBox="0 0 ${BADGE_SVG_PX} ${BADGE_SVG_PX}">` +
     `<circle cx="32" cy="32" r="29" fill="${color}" stroke="#14141c" stroke-width="4"/>` +
     `<text x="32" y="33" text-anchor="middle" dominant-baseline="central" font-family="system-ui, sans-serif" font-size="${fontSize}" font-weight="700" fill="#fff">${glyph}</text>` +
     `</svg>`;
@@ -69,46 +78,25 @@ function buildBadgeSvgDataUri(condition: HeroCondition): string {
   return `data:image/svg+xml;base64,${base64}`;
 }
 
-/**
- * Rendered world-space size of a token, from its own image/grid/scale
- * fields — deliberately not OBR.scene.items.getItemBounds, since that would
- * include our own attachments once drawn and skew the box on every pass.
- */
-function tokenWorldSize(token: Image, sceneDpi: number): { width: number; height: number } {
-  const cellWidth = token.image.width / token.grid.dpi;
-  const cellHeight = token.image.height / token.grid.dpi;
-  return {
-    width: cellWidth * token.scale.x * sceneDpi,
-    height: cellHeight * token.scale.y * sceneDpi,
-  };
-}
+function buildBadgeItem(token: Image, condition: HeroCondition, slot: number, bounds: BoundingBox): Item {
+  const pixelSize = Math.min(token.image.width, token.image.height) * BADGE_FRACTION;
+  const worldSize = Math.min(bounds.width, bounds.height) * BADGE_FRACTION;
+  const worldSpacing = worldSize * (BADGE_SPACING_FRACTION / BADGE_FRACTION);
 
-/**
- * Left-to-right starting above the token's top-left corner, one slot per
- * badge, sitting entirely above the token — badges' bottom edge is flush
- * with the token's top edge rather than overlapping it. Assumes
- * token.position is the image's visual center, matching the default anchor
- * OBR uses for tokens uploaded through its own pipeline — an assumption
- * worth confirming visually (see README sequencing notes) against tokens
- * with a non-default grid.offset.
- */
-function badgePosition(token: Image, sceneDpi: number, slot: number) {
-  const size = tokenWorldSize(token, sceneDpi);
-  const badgeSize = sceneDpi * BADGE_SIZE_GRID_FRACTION;
-  const spacing = sceneDpi * BADGE_SPACING_GRID_FRACTION;
-  const startX = token.position.x - size.width / 2 + badgeSize / 2;
-  const y = token.position.y - size.height / 2 - badgeSize / 2;
-  return { x: startX + slot * spacing, y };
-}
+  // Left-to-right starting above the token's top-left corner (bounds.min —
+  // the token's actual on-scene box, not an assumption about its anchor
+  // point), sitting entirely above it: badge's bottom edge is flush with
+  // the token's top edge rather than overlapping it.
+  const x = bounds.min.x + worldSize / 2 + slot * worldSpacing;
+  const y = bounds.min.y - worldSize / 2;
 
-function buildBadgeItem(token: Image, condition: HeroCondition, slot: number, sceneDpi: number): Item {
-  const badgeDpi = BADGE_IMAGE_PX / BADGE_SIZE_GRID_FRACTION;
   const metadata: BadgeMetadata = { conditionId: condition.id, slot };
   return buildImage(
-    { width: BADGE_IMAGE_PX, height: BADGE_IMAGE_PX, mime: "image/svg+xml", url: buildBadgeSvgDataUri(condition) },
-    { dpi: badgeDpi, offset: { x: BADGE_IMAGE_PX / 2, y: BADGE_IMAGE_PX / 2 } }
+    { width: pixelSize, height: pixelSize, mime: "image/svg+xml", url: buildBadgeSvgDataUri(condition) },
+    token.grid
   )
-    .position(badgePosition(token, sceneDpi, slot))
+    .scale(token.scale)
+    .position({ x, y })
     .attachedTo(token.id)
     .layer("ATTACHMENT")
     .disableHit(true)
@@ -134,10 +122,7 @@ function nextFreeSlot(usedSlots: Set<number>): number {
  * flicker on every poll.
  */
 export async function syncConditionBadges(pairedTokens: PairedToken[]): Promise<void> {
-  const [allBadges, sceneDpi] = await Promise.all([
-    OBR.scene.items.getItems<Item>((item) => readBadgeMetadata(item) !== undefined),
-    OBR.scene.grid.getDpi(),
-  ]);
+  const allBadges = await OBR.scene.items.getItems<Item>((item) => readBadgeMetadata(item) !== undefined);
 
   const badgesByToken = new Map<string, Item[]>();
   for (const badge of allBadges) {
@@ -177,10 +162,15 @@ export async function syncConditionBadges(pairedTokens: PairedToken[]): Promise<
       }
     }
 
-    for (const condition of conditions) {
-      if (existingByConditionId.has(condition.id)) continue;
+    const newConditions = conditions.filter((c) => !existingByConditionId.has(c.id));
+    if (newConditions.length === 0) continue;
+
+    // Bounds only fetched for tokens that actually need a new badge this
+    // pass — most passes touch zero tokens.
+    const bounds = await OBR.scene.items.getItemBounds([token.id]);
+    for (const condition of newConditions) {
       const slot = nextFreeSlot(usedSlots);
-      toAdd.push(buildBadgeItem(token, condition, slot, sceneDpi));
+      toAdd.push(buildBadgeItem(token, condition, slot, bounds));
     }
   }
 
