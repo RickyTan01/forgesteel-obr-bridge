@@ -1,8 +1,7 @@
 import OBR from "@owlbear-rodeo/sdk";
 import { getPluginId } from "../getPluginId";
 import { readBridgeLink } from "../obr/bridgeLink";
-import { WarehouseClient } from "../warehouse/warehouseClient";
-import { getWarehouseConfig } from "../warehouse/warehouseConfig";
+import { getTokenConditions } from "../obr/tokenConditions";
 import { conditionDisplayName, conditionEndsLabel } from "../logic/conditionDisplay";
 import { describeError } from "./describeError";
 
@@ -59,16 +58,20 @@ export function registerConditionContextMenu(): void {
         const link = readBridgeLink(item);
         if (!link) return;
 
-        const config = getWarehouseConfig();
-        if (!config) {
-          await OBR.notification.show("FS Bridge: Warehouse not configured.", "WARNING");
-          return;
-        }
-
         try {
-          const client = new WarehouseClient(config);
-          const hero = await client.getFullHero(link.heroId);
-          const conditions = client.extractConditions(hero);
+          // Reads the room-metadata cache the GM's background sync pass
+          // writes (see tokenConditions.ts) instead of doing its own live
+          // Warehouse fetch — that only ever worked in the GM's own
+          // browser (warehouseConfig.ts is localStorage-only), so a
+          // player clicking this always hit "Warehouse not configured",
+          // which means nothing to a player. This works identically for
+          // GM and players.
+          const tokenConditions = await getTokenConditions();
+          const conditions = tokenConditions[item.id];
+          if (conditions === undefined) {
+            await OBR.notification.show("FS Bridge: conditions not synced yet.", "WARNING");
+            return;
+          }
           // "Dazed: Save Ends | Slowed: Until Removed" — bar-separated, not
           // one row per condition via "\n": confirmed live that OBR's
           // notification toast collapses newlines to a space, which reads

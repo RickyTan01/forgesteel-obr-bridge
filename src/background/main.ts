@@ -6,6 +6,7 @@ import { getHeroTokens } from "../obr/drawSteelTokens";
 import { readBridgeLink } from "../obr/bridgeLink";
 import { syncConditionBadges, clearAllConditionBadges, PairedToken } from "./conditionBadges";
 import { registerConditionContextMenu } from "./conditionContextMenu";
+import { setTokenConditions } from "../obr/tokenConditions";
 import { describeError } from "./describeError";
 
 // Fixed cadence for picking up condition changes saved in Forge Steel —
@@ -31,6 +32,10 @@ function debounce(fn: () => void, ms: number): () => void {
 
 let running = false;
 
+async function clearAll(): Promise<void> {
+  await Promise.all([clearAllConditionBadges(), setTokenConditions({})]);
+}
+
 async function runSyncPass(): Promise<void> {
   if (running) return; // last pass still in flight (slow Warehouse response) — skip rather than pile up
   running = true;
@@ -45,7 +50,7 @@ async function runSyncPass(): Promise<void> {
 
     const enabled = await getConditionsSyncEnabled();
     if (!enabled) {
-      await clearAllConditionBadges();
+      await clearAll();
       return;
     }
 
@@ -59,7 +64,7 @@ async function runSyncPass(): Promise<void> {
       .filter((row): row is { item: typeof row.item; link: NonNullable<typeof row.link> } => !!row.link);
 
     if (linked.length === 0) {
-      await clearAllConditionBadges();
+      await clearAll();
       return;
     }
 
@@ -75,7 +80,14 @@ async function runSyncPass(): Promise<void> {
       })
     );
 
-    await syncConditionBadges(pairedTokens.filter((p): p is PairedToken => p !== null));
+    const resolved = pairedTokens.filter((p): p is PairedToken => p !== null);
+
+    // Room-metadata cache read by the "View Conditions" menu, so it works
+    // for players too (see tokenConditions.ts) instead of doing its own
+    // per-click Warehouse fetch, which only ever works in the GM's browser.
+    const conditionsByTokenId = Object.fromEntries(resolved.map((p) => [p.token.id, p.conditions]));
+
+    await Promise.all([syncConditionBadges(resolved), setTokenConditions(conditionsByTokenId)]);
   } catch (err) {
     console.error("Condition badge sync pass failed:", describeError(err));
   } finally {
