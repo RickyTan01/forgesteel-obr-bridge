@@ -26,6 +26,7 @@ export default defineConfig({
       input: {
         action: resolve(__dirname, "action.html"),
         background: resolve(__dirname, "background.html"),
+        "condition-summary": resolve(__dirname, "condition-summary.html"),
       },
     },
   },

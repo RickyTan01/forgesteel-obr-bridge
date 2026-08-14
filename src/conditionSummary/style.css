@@ -1,0 +1,52 @@
+body {
+  margin: 0;
+  background: #292b38;
+  color: #e6e6ee;
+  font-family: system-ui, sans-serif;
+  font-size: 13px;
+}
+
+#root {
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-sizing: border-box;
+  height: 100vh;
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.empty {
+  color: #7d7e91;
+  font-style: italic;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: #33354420;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.name {
+  font-weight: 600;
+}
+
+.ends {
+  color: #a5a6b8;
+  font-size: 12px;
+}
