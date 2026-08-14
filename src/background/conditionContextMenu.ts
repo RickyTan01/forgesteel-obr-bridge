@@ -69,13 +69,14 @@ export function registerConditionContextMenu(): void {
           const client = new WarehouseClient(config);
           const hero = await client.getFullHero(link.heroId);
           const conditions = client.extractConditions(hero);
-          // One row per condition ("Slowed: Save Ends") rather than a single
-          // comma-separated line — reads better once a token has more than
-          // one active condition.
+          // "Dazed: Save Ends | Slowed: Until Removed" — bar-separated, not
+          // one row per condition via "\n": confirmed live that OBR's
+          // notification toast collapses newlines to a space, which reads
+          // as ambiguous run-on text once there's more than one condition.
           const message =
             conditions.length === 0
               ? `${item.name}: no active conditions`
-              : conditions.map((c) => `${conditionDisplayName(c)}: ${conditionEndsLabel(c)}`).join("\n");
+              : conditions.map((c) => `${conditionDisplayName(c)}: ${conditionEndsLabel(c)}`).join(" | ");
           await OBR.notification.show(message, "INFO");
         } catch (err) {
           console.error("Failed to load conditions for context menu:", describeError(err));
