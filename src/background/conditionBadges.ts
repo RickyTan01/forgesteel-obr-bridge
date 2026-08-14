@@ -79,18 +79,18 @@ function tokenWorldSize(token: Image, sceneDpi: number): { width: number; height
 }
 
 /**
- * Left-to-right along the token's bottom edge, one slot per badge.
- * Assumes token.position is the image's visual center, matching the
- * default anchor OBR uses for tokens uploaded through its own pipeline —
- * an assumption worth confirming visually (see README sequencing notes)
- * against tokens with a non-default grid.offset.
+ * Left-to-right along the token's top edge, starting at the top-left
+ * corner, one slot per badge. Assumes token.position is the image's visual
+ * center, matching the default anchor OBR uses for tokens uploaded through
+ * its own pipeline — an assumption worth confirming visually (see README
+ * sequencing notes) against tokens with a non-default grid.offset.
  */
 function badgePosition(token: Image, sceneDpi: number, slot: number) {
   const size = tokenWorldSize(token, sceneDpi);
   const badgeSize = sceneDpi * BADGE_SIZE_GRID_FRACTION;
   const spacing = sceneDpi * BADGE_SPACING_GRID_FRACTION;
   const startX = token.position.x - size.width / 2 + badgeSize / 2;
-  const y = token.position.y + size.height / 2 - badgeSize / 2;
+  const y = token.position.y - size.height / 2 + badgeSize / 2;
   return { x: startX + slot * spacing, y };
 }
 
