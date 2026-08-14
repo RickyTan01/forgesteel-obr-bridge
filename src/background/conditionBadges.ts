@@ -61,7 +61,12 @@ function buildBadgeSvgDataUri(condition: HeroCondition): string {
     `<circle cx="32" cy="32" r="29" fill="${color}" stroke="#14141c" stroke-width="4"/>` +
     `<text x="32" y="33" text-anchor="middle" dominant-baseline="central" font-family="system-ui, sans-serif" font-size="${fontSize}" font-weight="700" fill="#fff">${glyph}</text>` +
     `</svg>`;
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+  // base64, not a percent-encoded ";utf8," data URI — OBR's own image loader
+  // does a real fetch() of this URL and choked on the non-standard MIME
+  // parameter (";utf8" isn't valid; should be ";charset=utf-8" at best),
+  // silently falling back to its broken-image placeholder for every badge.
+  const base64 = btoa(unescape(encodeURIComponent(svg)));
+  return `data:image/svg+xml;base64,${base64}`;
 }
 
 /**
@@ -79,18 +84,20 @@ function tokenWorldSize(token: Image, sceneDpi: number): { width: number; height
 }
 
 /**
- * Left-to-right along the token's top edge, starting at the top-left
- * corner, one slot per badge. Assumes token.position is the image's visual
- * center, matching the default anchor OBR uses for tokens uploaded through
- * its own pipeline — an assumption worth confirming visually (see README
- * sequencing notes) against tokens with a non-default grid.offset.
+ * Left-to-right starting above the token's top-left corner, one slot per
+ * badge, sitting entirely above the token — badges' bottom edge is flush
+ * with the token's top edge rather than overlapping it. Assumes
+ * token.position is the image's visual center, matching the default anchor
+ * OBR uses for tokens uploaded through its own pipeline — an assumption
+ * worth confirming visually (see README sequencing notes) against tokens
+ * with a non-default grid.offset.
  */
 function badgePosition(token: Image, sceneDpi: number, slot: number) {
   const size = tokenWorldSize(token, sceneDpi);
   const badgeSize = sceneDpi * BADGE_SIZE_GRID_FRACTION;
   const spacing = sceneDpi * BADGE_SPACING_GRID_FRACTION;
   const startX = token.position.x - size.width / 2 + badgeSize / 2;
-  const y = token.position.y - size.height / 2 + badgeSize / 2;
+  const y = token.position.y - size.height / 2 - badgeSize / 2;
   return { x: startX + slot * spacing, y };
 }
 
