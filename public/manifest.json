@@ -13,7 +13,5 @@
     "height": 560,
     "width": 380
   },
-  "background": {
-    "url": "/background.html"
-  }
+  "background_url": "/background.html"
 }
