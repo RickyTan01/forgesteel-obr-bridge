@@ -15,6 +15,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         action: resolve(__dirname, "action.html"),
+        background: resolve(__dirname, "background.html"),
       },
     },
   },

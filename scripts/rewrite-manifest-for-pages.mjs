@@ -18,6 +18,7 @@ const prefix = (path) => `${base.replace(/\/$/, "")}${path}`;
 manifest.icon = prefix(manifest.icon);
 manifest.action.icon = prefix(manifest.action.icon);
 manifest.action.popover = prefix(manifest.action.popover);
+manifest.background.url = prefix(manifest.background.url);
 
 writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 console.log(`Rewrote ${manifestPath} for base "${base}"`);

@@ -30,6 +30,21 @@ export type HeroDerivedFields = {
   heroicResourceName?: string;
 };
 
+/**
+ * Mirrors Forge Steel's `Condition` model (src/models/condition.ts) closely
+ * enough to display — not imported directly, same reasoning as
+ * DstHeroTokenData: no dependency on Forge Steel's internal module paths.
+ * `type` is one of the fixed ConditionType enum strings (e.g. "Bleeding"),
+ * except for "Custom Condition"/"Quick Condition" where the real label
+ * lives in `text` instead — see src/logic/conditionDisplay.ts.
+ */
+export type HeroCondition = {
+  id: string;
+  type: string;
+  text: string;
+  ends: string;
+};
+
 export class WarehouseClient {
   private api: AxiosInstance;
   private jwt: string | null = null;
@@ -128,6 +143,11 @@ export class WarehouseClient {
       heroicResourceValue: hero.heroicResourceValue,
       heroicResourceName: hero.heroicResourceName,
     };
+  }
+
+  /** Absence of `state.conditions` (heroes saved before this field existed) means "none active", not "unknown". */
+  extractConditions(hero: { state?: { conditions?: HeroCondition[] } }): HeroCondition[] {
+    return hero.state?.conditions ?? [];
   }
 
   /**

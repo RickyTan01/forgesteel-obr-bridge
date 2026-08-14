@@ -7,7 +7,12 @@ import { readBridgeLink, writeBridgeLink, findAutoMatch, BridgeLink } from "../o
 import { getActivePoolLabel, setActivePoolLabel } from "../obr/roomPool";
 import { getLastSyncedAt, setLastSyncedAt as writeLastSyncedAt } from "../obr/syncStatus";
 import { heroStateToDstFields } from "../logic/conversion";
-import { getSyncIntervalSeconds, setSyncIntervalSeconds } from "../warehouse/syncPreferences";
+import {
+  getSyncIntervalSeconds,
+  setSyncIntervalSeconds,
+  getConditionsSyncEnabled,
+  setConditionsSyncEnabled,
+} from "../warehouse/syncPreferences";
 import { formatRelative } from "../formatRelative";
 
 /** Off, plus a spread from "fast enough to feel live" to "basically just periodic housekeeping". */
@@ -36,6 +41,7 @@ export function SyncPanel({ config, onOpenSettings }: Props) {
   const [status, setStatus] = useState<string>("");
   const [syncing, setSyncing] = useState(false);
   const [intervalSeconds, setIntervalSecondsState] = useState(getSyncIntervalSeconds());
+  const [conditionsSyncEnabled, setConditionsSyncEnabledState] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
@@ -49,16 +55,18 @@ export function SyncPanel({ config, onOpenSettings }: Props) {
   }, [rows]);
 
   const refresh = async () => {
-    const [label, tokens, heroSummaries, synced] = await Promise.all([
+    const [label, tokens, heroSummaries, synced, conditionsSync] = await Promise.all([
       getActivePoolLabel(),
       getHeroTokens(),
       client.getHeroSummaries().catch(() => [] as HeroSummary[]),
       getLastSyncedAt(),
+      getConditionsSyncEnabled(),
     ]);
     setPoolLabel(label ?? "");
     setHeroes(heroSummaries);
     setRows(tokens.map((item) => ({ item, link: readBridgeLink(item) })));
     setLastSyncedAt(synced);
+    setConditionsSyncEnabledState(conditionsSync);
   };
 
   // Local-only rescan — no Warehouse call. Reads whatever hero tokens exist
@@ -76,9 +84,14 @@ export function SyncPanel({ config, onOpenSettings }: Props) {
   // Room metadata changes when a sync writes the shared timestamp (or the
   // pool label changes) — refetch just those two, not the full heroes list.
   const refreshRoomMetaOnly = async () => {
-    const [label, synced] = await Promise.all([getActivePoolLabel(), getLastSyncedAt()]);
+    const [label, synced, conditionsSync] = await Promise.all([
+      getActivePoolLabel(),
+      getLastSyncedAt(),
+      getConditionsSyncEnabled(),
+    ]);
     setPoolLabel(label ?? "");
     setLastSyncedAt(synced);
+    setConditionsSyncEnabledState(conditionsSync);
   };
 
   useEffect(() => {
@@ -163,6 +176,11 @@ export function SyncPanel({ config, onOpenSettings }: Props) {
     setSyncIntervalSeconds(seconds);
   };
 
+  const toggleConditionsSync = async (enabled: boolean) => {
+    setConditionsSyncEnabledState(enabled);
+    await setConditionsSyncEnabled(enabled);
+  };
+
   const autoLinkAll = async () => {
     for (const row of rows) {
       if (row.link) continue;
@@ -241,6 +259,15 @@ export function SyncPanel({ config, onOpenSettings }: Props) {
             </option>
           ))}
         </select>
+      </label>
+
+      <label className="checkbox-row">
+        <input
+          type="checkbox"
+          checked={conditionsSyncEnabled}
+          onChange={(e) => toggleConditionsSync(e.target.checked)}
+        />
+        <span>Sync conditions to token</span>
       </label>
 
       <div className="actions">
