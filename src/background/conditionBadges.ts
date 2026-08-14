@@ -126,10 +126,15 @@ function badgePosition(token: Image, sceneDpi: number, badgeSize: number, spacin
   return { x: startX + slot * spacing, y };
 }
 
-function buildBadgeItem(token: Image, condition: HeroCondition, slot: number, sceneDpi: number): Item {
+function computeBadgeLayout(token: Image, sceneDpi: number): { badgeSize: number; spacing: number } {
   const tokenSize = tokenWorldSize(token, sceneDpi);
   const badgeSize = Math.min(tokenSize.width, tokenSize.height) * BADGE_SIZE_FRACTION;
   const spacing = badgeSize * (BADGE_SPACING_FRACTION / BADGE_SIZE_FRACTION);
+  return { badgeSize, spacing };
+}
+
+function buildBadgeItem(token: Image, condition: HeroCondition, slot: number, sceneDpi: number): Item {
+  const { badgeSize, spacing } = computeBadgeLayout(token, sceneDpi);
 
   // Reuse the token's own grid.dpi for the badge's grid (rather than
   // inventing a custom one) so it cancels out of the rendered-size formula
@@ -172,21 +177,17 @@ function buildBadgeItem(token: Image, condition: HeroCondition, slot: number, sc
     .build();
 }
 
-function nextFreeSlot(usedSlots: Set<number>): number {
-  let slot = 0;
-  while (usedSlots.has(slot)) slot++;
-  usedSlots.add(slot);
-  return slot;
-}
-
 /**
  * Reconciles condition badges against the given paired tokens: removes
  * badges for conditions that ended or tokens that are no longer paired
  * (badges on tokens deleted outright are cleaned up by OBR itself, via the
  * default DELETE attachment behavior), and adds badges for new conditions.
- * Untouched badges are left exactly as they are — no repositioning pass —
- * to avoid needless updateItems calls fighting other extensions or causing
- * flicker on every poll.
+ * Whenever a token's badge set actually changes (something added or
+ * removed), every remaining badge on that token is repacked into
+ * consecutive slots in the hero's own condition order — so removing one
+ * from the middle shifts the rest left instead of leaving a gap. A token
+ * nothing changed for this pass is left completely untouched, so a steady
+ * state costs zero updateItems calls.
  */
 export async function syncConditionBadges(pairedTokens: PairedToken[]): Promise<void> {
   const [allBadges, sceneDpi] = await Promise.all([
@@ -205,6 +206,7 @@ export async function syncConditionBadges(pairedTokens: PairedToken[]): Promise<
   const pairedTokenIds = new Set(pairedTokens.map((p) => p.token.id));
   const toDelete: string[] = [];
   const toAdd: Item[] = [];
+  const toReposition: { id: string; slot: number; position: Vector2 }[] = [];
 
   // Badges on tokens that still exist but are no longer in the paired set
   // (unlinked, or hero fetch failed this pass).
@@ -223,24 +225,41 @@ export async function syncConditionBadges(pairedTokens: PairedToken[]): Promise<
     );
     const currentConditionIds = new Set(conditions.map((c) => c.id));
 
-    const usedSlots = new Set<number>();
-    for (const [conditionId, badge] of existingByConditionId) {
-      if (currentConditionIds.has(conditionId)) {
-        usedSlots.add(readBadgeMetadata(badge)!.slot);
-      } else {
-        toDelete.push(badge.id);
-      }
-    }
+    const stale = existing.filter((b) => !currentConditionIds.has(readBadgeMetadata(b)!.conditionId));
+    const isNewCondition = conditions.some((c) => !existingByConditionId.has(c.id));
+    if (stale.length === 0 && !isNewCondition) continue; // steady state — nothing to do for this token
 
-    for (const condition of conditions) {
-      if (existingByConditionId.has(condition.id)) continue;
-      const slot = nextFreeSlot(usedSlots);
-      toAdd.push(buildBadgeItem(token, condition, slot, sceneDpi));
-    }
+    toDelete.push(...stale.map((b) => b.id));
+
+    const { badgeSize, spacing } = computeBadgeLayout(token, sceneDpi);
+    conditions.forEach((condition, index) => {
+      const badge = existingByConditionId.get(condition.id);
+      if (!badge) {
+        toAdd.push(buildBadgeItem(token, condition, index, sceneDpi));
+        return;
+      }
+      if (readBadgeMetadata(badge)!.slot !== index) {
+        toReposition.push({ id: badge.id, slot: index, position: badgePosition(token, sceneDpi, badgeSize, spacing, index) });
+      }
+    });
   }
 
   if (toDelete.length > 0) await OBR.scene.items.deleteItems(toDelete);
   if (toAdd.length > 0) await OBR.scene.items.addItems(toAdd);
+  if (toReposition.length > 0) {
+    const byId = new Map(toReposition.map((r) => [r.id, r]));
+    await OBR.scene.items.updateItems(
+      toReposition.map((r) => r.id),
+      (items) => {
+        for (const item of items) {
+          const target = byId.get(item.id)!;
+          item.position = target.position;
+          const metadata = item.metadata[BADGE_METADATA_KEY] as BadgeMetadata;
+          metadata.slot = target.slot;
+        }
+      }
+    );
+  }
 }
 
 export async function clearAllConditionBadges(): Promise<void> {
