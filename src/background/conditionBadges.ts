@@ -172,6 +172,14 @@ function buildBadgeItem(token: Image, condition: HeroCondition, slot: number, sc
     .attachedTo(token.id)
     .layer("ATTACHMENT")
     .disableHit(false) // badges need to be individually selectable — see conditionMarkerPopover.ts
+    // Locked: nothing about a badge should ever be dragged/resized/rotated
+    // independently, and OBR only shows its move/resize/rotate selection
+    // handles (and the Transform/Align/Replace Image menu entries) for
+    // unlocked items — locking removes that whole layer of UI a badge has
+    // no use for, leaving a much shorter context menu. Matches
+    // kgbergman/conditionmarkers, which locks its markers for the same
+    // reason.
+    .locked(true)
     .name(`Condition: ${conditionDisplayName(condition)}`)
     .metadata({ [BADGE_METADATA_KEY]: metadata })
     .build();
