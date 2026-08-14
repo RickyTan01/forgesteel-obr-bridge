@@ -127,18 +127,26 @@ function buildBadgeItem(token: Image, condition: HeroCondition, slot: number, sc
   const tokenSize = tokenWorldSize(token, sceneDpi);
   const badgeSize = Math.min(tokenSize.width, tokenSize.height) * BADGE_SIZE_FRACTION;
   const spacing = badgeSize * (BADGE_SPACING_FRACTION / BADGE_SIZE_FRACTION);
-  // Inverse of tokenWorldSize's formula, solved for the dpi that makes a
-  // declared 64x64 image (icons are referenced at a fixed logical size
-  // regardless of their real resolution — see the import comment below)
-  // render at exactly badgeSize world units, with scale left at the
-  // builder's default {1,1}.
-  const badgeGridDpi = (64 * sceneDpi) / badgeSize;
+
+  // Reuse the token's own grid.dpi for the badge's grid (rather than
+  // inventing a custom one) so it cancels out of the rendered-size formula
+  // algebraically — size is then controlled purely by .scale(), computed
+  // from the token's own pixel dimensions directly. The previous attempt
+  // computed a custom per-badge dpi (solved from tokenWorldSize's formula,
+  // assuming scale stays at the builder's default {1,1}) and rendered
+  // roughly 20x too large — this sidesteps needing to trust that inverse
+  // computation at all, matching kgbergman/conditionmarkers' approach
+  // (reuse attached.grid, drive size via .scale()) more precisely instead
+  // of only in spirit.
+  const minTokenPixelDim = Math.min(token.image.width * token.scale.x, token.image.height * token.scale.y);
+  const badgeScale = (BADGE_SIZE_FRACTION * minTokenPixelDim) / 64;
 
   const metadata: BadgeMetadata = { conditionId: condition.id, slot };
   return buildImage(
     { width: 64, height: 64, mime: "image/png", url: iconFor(condition) },
-    { dpi: badgeGridDpi, offset: { x: 32, y: 32 } }
+    token.grid
   )
+    .scale({ x: badgeScale, y: badgeScale })
     .position(badgePosition(token, sceneDpi, badgeSize, spacing, slot))
     .attachedTo(token.id)
     .layer("ATTACHMENT")
