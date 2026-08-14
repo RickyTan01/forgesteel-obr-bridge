@@ -6,6 +6,7 @@ import { getHeroTokens } from "../obr/drawSteelTokens";
 import { readBridgeLink } from "../obr/bridgeLink";
 import { syncConditionBadges, clearAllConditionBadges, PairedToken } from "./conditionBadges";
 import { registerConditionContextMenu } from "./conditionContextMenu";
+import { describeError } from "./describeError";
 
 // Fixed cadence for picking up condition changes saved in Forge Steel —
 // independent of the popover's own configurable stat-sync interval
@@ -68,7 +69,7 @@ async function runSyncPass(): Promise<void> {
           const hero = await client.getFullHero(link.heroId);
           return { token: item, conditions: client.extractConditions(hero) };
         } catch (err) {
-          console.error(`Condition sync failed for token ${item.id}`, err);
+          console.error(`Condition sync failed for token ${item.id}:`, describeError(err));
           return null;
         }
       })
@@ -76,7 +77,7 @@ async function runSyncPass(): Promise<void> {
 
     await syncConditionBadges(pairedTokens.filter((p): p is PairedToken => p !== null));
   } catch (err) {
-    console.error("Condition badge sync pass failed", err);
+    console.error("Condition badge sync pass failed:", describeError(err));
   } finally {
     running = false;
   }
