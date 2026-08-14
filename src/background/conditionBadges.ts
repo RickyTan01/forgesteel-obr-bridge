@@ -24,11 +24,17 @@ import tauntedIcon from "./conditionIcons/taunted.png";
 import weakenedIcon from "./conditionIcons/weakened.png";
 import genericIcon from "./conditionIcons/generic.png";
 
-const BADGE_METADATA_KEY = getPluginId("condition-badge");
+export const BADGE_METADATA_KEY = getPluginId("condition-badge");
 
-type BadgeMetadata = { conditionId: string; slot: number };
+// conditionName/conditionEnds are a snapshot taken at badge-creation time,
+// not re-fetched — read directly by the per-marker popover
+// (conditionMarkerPopover.ts) so clicking a badge doesn't need its own
+// Warehouse round-trip. Fine to be a snapshot: if the condition actually
+// changes, this badge gets deleted and a fresh one (with fresh metadata)
+// takes its place — see syncConditionBadges below.
+export type BadgeMetadata = { conditionId: string; slot: number; conditionName: string; conditionEnds: string };
 
-function readBadgeMetadata(item: Item): BadgeMetadata | undefined {
+export function readBadgeMetadata(item: Item): BadgeMetadata | undefined {
   return item.metadata[BADGE_METADATA_KEY] as BadgeMetadata | undefined;
 }
 
@@ -146,7 +152,12 @@ function buildBadgeItem(token: Image, condition: HeroCondition, slot: number, sc
   const minTokenPixelDim = Math.min(token.image.width * token.scale.x, token.image.height * token.scale.y);
   const badgeScale = (BADGE_SIZE_FRACTION * minTokenPixelDim) / ICON_SOURCE_PX;
 
-  const metadata: BadgeMetadata = { conditionId: condition.id, slot };
+  const metadata: BadgeMetadata = {
+    conditionId: condition.id,
+    slot,
+    conditionName: conditionDisplayName(condition),
+    conditionEnds: condition.ends,
+  };
   return buildImage(
     { width: ICON_SOURCE_PX, height: ICON_SOURCE_PX, mime: "image/png", url: iconFor(condition) },
     token.grid
@@ -155,7 +166,7 @@ function buildBadgeItem(token: Image, condition: HeroCondition, slot: number, sc
     .position(badgePosition(token, sceneDpi, badgeSize, spacing, slot))
     .attachedTo(token.id)
     .layer("ATTACHMENT")
-    .disableHit(true)
+    .disableHit(false) // badges need to be individually selectable — see conditionMarkerPopover.ts
     .name(`Condition: ${conditionDisplayName(condition)}`)
     .metadata({ [BADGE_METADATA_KEY]: metadata })
     .build();

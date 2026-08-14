@@ -6,6 +6,7 @@ import { getHeroTokens } from "../obr/drawSteelTokens";
 import { readBridgeLink } from "../obr/bridgeLink";
 import { syncConditionBadges, clearAllConditionBadges, PairedToken } from "./conditionBadges";
 import { registerConditionContextMenu } from "./conditionContextMenu";
+import { registerConditionMarkerPopover } from "./conditionMarkerPopover";
 import { describeError } from "./describeError";
 
 // Fixed cadence for picking up condition changes saved in Forge Steel —
@@ -86,6 +87,7 @@ async function runSyncPass(): Promise<void> {
 OBR.onReady(() => {
   console.log("[FS Bridge] background context ready");
   registerConditionContextMenu();
+  registerConditionMarkerPopover();
 
   runSyncPass();
   setInterval(runSyncPass, POLL_INTERVAL_MS);
