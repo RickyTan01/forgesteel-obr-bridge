@@ -24,17 +24,11 @@ import tauntedIcon from "./conditionIcons/taunted.png";
 import weakenedIcon from "./conditionIcons/weakened.png";
 import genericIcon from "./conditionIcons/generic.png";
 
-export const BADGE_METADATA_KEY = getPluginId("condition-badge");
+const BADGE_METADATA_KEY = getPluginId("condition-badge");
 
-// conditionName/conditionEnds are a snapshot taken at badge-creation time,
-// not re-fetched — read directly by the per-marker popover
-// (conditionMarkerPopover.ts) so clicking a badge doesn't need its own
-// Warehouse round-trip. Fine to be a snapshot: if the condition actually
-// changes, this badge gets deleted and a fresh one (with fresh metadata)
-// takes its place — see syncConditionBadges below.
-export type BadgeMetadata = { conditionId: string; slot: number; conditionName: string; conditionEnds: string };
+type BadgeMetadata = { conditionId: string; slot: number };
 
-export function readBadgeMetadata(item: Item): BadgeMetadata | undefined {
+function readBadgeMetadata(item: Item): BadgeMetadata | undefined {
   return item.metadata[BADGE_METADATA_KEY] as BadgeMetadata | undefined;
 }
 
@@ -157,12 +151,7 @@ function buildBadgeItem(token: Image, condition: HeroCondition, slot: number, sc
   const minTokenPixelDim = Math.min(token.image.width * token.scale.x, token.image.height * token.scale.y);
   const badgeScale = (BADGE_SIZE_FRACTION * minTokenPixelDim) / ICON_SOURCE_PX;
 
-  const metadata: BadgeMetadata = {
-    conditionId: condition.id,
-    slot,
-    conditionName: conditionDisplayName(condition),
-    conditionEnds: condition.ends,
-  };
+  const metadata: BadgeMetadata = { conditionId: condition.id, slot };
   return buildImage(
     { width: ICON_SOURCE_PX, height: ICON_SOURCE_PX, mime: "image/png", url: iconFor(condition) },
     token.grid
@@ -171,15 +160,14 @@ function buildBadgeItem(token: Image, condition: HeroCondition, slot: number, sc
     .position(badgePosition(token, sceneDpi, badgeSize, spacing, slot))
     .attachedTo(token.id)
     .layer("ATTACHMENT")
-    .disableHit(false) // badges need to be individually selectable — see conditionMarkerPopover.ts
-    // Locked: nothing about a badge should ever be dragged/resized/rotated
-    // independently, and OBR only shows its move/resize/rotate selection
-    // handles (and the Transform/Align/Replace Image menu entries) for
-    // unlocked items — locking removes that whole layer of UI a badge has
-    // no use for, leaving a much shorter context menu. Matches
-    // kgbergman/conditionmarkers, which locks its markers for the same
-    // reason.
-    .locked(true)
+    // Purely visual — no per-badge selection/interaction. Tried making
+    // badges individually clickable (disableHit(false) + a per-badge
+    // context menu opening a popover), but OBR's selection UI (resize/
+    // rotate handles, Transform/Align/Replace Image menu entries) can't be
+    // trimmed down for an extension-created item — even locked, per live
+    // testing. Not worth that UI cost for a per-marker detail view when
+    // the token-level "View Conditions" summary already covers it.
+    .disableHit(true)
     .name(`Condition: ${conditionDisplayName(condition)}`)
     .metadata({ [BADGE_METADATA_KEY]: metadata })
     .build();

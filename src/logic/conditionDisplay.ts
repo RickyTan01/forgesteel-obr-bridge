@@ -11,14 +11,7 @@ export function conditionDisplayName(condition: HeroCondition): string {
   return FREEFORM_TYPES.has(condition.type) ? condition.text : condition.type;
 }
 
-export function conditionFullLabel(condition: HeroCondition): string {
-  const name = conditionDisplayName(condition);
-  switch (condition.ends) {
-    case "End of turn":
-      return `${name} (EoT)`;
-    case "Save ends":
-      return `${name} (Save ends)`;
-    default:
-      return name;
-  }
+/** Title-cases the raw ends value ("Save ends" -> "Save Ends") for display. */
+export function conditionEndsLabel(condition: HeroCondition): string {
+  return condition.ends.replace(/\b\w/g, (c) => c.toUpperCase());
 }

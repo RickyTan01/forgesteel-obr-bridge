@@ -26,7 +26,6 @@ export default defineConfig({
       input: {
         action: resolve(__dirname, "action.html"),
         background: resolve(__dirname, "background.html"),
-        "condition-popover": resolve(__dirname, "condition-popover.html"),
       },
     },
   },

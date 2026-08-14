@@ -3,7 +3,7 @@ import { getPluginId } from "../getPluginId";
 import { readBridgeLink } from "../obr/bridgeLink";
 import { WarehouseClient } from "../warehouse/warehouseClient";
 import { getWarehouseConfig } from "../warehouse/warehouseConfig";
-import { conditionFullLabel } from "../logic/conditionDisplay";
+import { conditionDisplayName, conditionEndsLabel } from "../logic/conditionDisplay";
 import { describeError } from "./describeError";
 
 const LINK_KEY = getPluginId("link");
@@ -69,10 +69,13 @@ export function registerConditionContextMenu(): void {
           const client = new WarehouseClient(config);
           const hero = await client.getFullHero(link.heroId);
           const conditions = client.extractConditions(hero);
+          // One row per condition ("Slowed: Save Ends") rather than a single
+          // comma-separated line — reads better once a token has more than
+          // one active condition.
           const message =
             conditions.length === 0
               ? `${item.name}: no active conditions`
-              : `${item.name}: ${conditions.map(conditionFullLabel).join(", ")}`;
+              : conditions.map((c) => `${conditionDisplayName(c)}: ${conditionEndsLabel(c)}`).join("\n");
           await OBR.notification.show(message, "INFO");
         } catch (err) {
           console.error("Failed to load conditions for context menu:", describeError(err));
