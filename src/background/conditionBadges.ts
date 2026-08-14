@@ -3,6 +3,22 @@ import { getPluginId } from "../getPluginId";
 import type { HeroCondition } from "../warehouse/warehouseClient";
 import { conditionDisplayName } from "../logic/conditionDisplay";
 
+// Vite's default *.svg import already resolves to a URL string (see
+// vite/client.d.ts) — the file actually being emitted as a real, separately
+// hosted asset rather than inlined as a base64 data: URI is controlled by
+// build.assetsInlineLimit in vite.config.ts, not by anything at the import
+// site.
+import bleedingIcon from "./conditionIcons/bleeding.svg";
+import dazedIcon from "./conditionIcons/dazed.svg";
+import frightenedIcon from "./conditionIcons/frightened.svg";
+import grabbedIcon from "./conditionIcons/grabbed.svg";
+import proneIcon from "./conditionIcons/prone.svg";
+import restrainedIcon from "./conditionIcons/restrained.svg";
+import slowedIcon from "./conditionIcons/slowed.svg";
+import tauntedIcon from "./conditionIcons/taunted.svg";
+import weakenedIcon from "./conditionIcons/weakened.svg";
+import genericIcon from "./conditionIcons/generic.svg";
+
 const BADGE_METADATA_KEY = getPluginId("condition-badge");
 
 type BadgeMetadata = { conditionId: string; slot: number };
@@ -27,55 +43,32 @@ export type PairedToken = {
 const BADGE_FRACTION = 0.3;
 const BADGE_SPACING_FRACTION = BADGE_FRACTION * 1.15;
 
-// Internal SVG drawing resolution — independent of the badge's declared
-// ImageContent width/height (which varies per token, see buildBadgeItem).
-// SVGs are vector/resolution-independent, so this only affects crispness.
-const BADGE_SVG_PX = 64;
-
-const GLYPH_OVERRIDES: Record<string, string> = {
-  Bleeding: "Bl",
-  Dazed: "Dz",
-  Frightened: "Fr",
-  Grabbed: "Gb",
-  Prone: "Pr",
-  Restrained: "Rs",
-  Slowed: "Sl",
-  Taunted: "Tn",
-  Weakened: "Wk",
+// Static files, not inline SVG data URIs — OBR's item-image loader routes
+// image URLs through its own fetch/CDN pipeline (same as every real image
+// on the scene, visible as the images.owlbear.rodeo resize/crop requests in
+// the network tab); a data: URI can't participate in that and fails with
+// "Unable to fetch image: Invalid URL" / "Network error may have occurred",
+// confirmed against a live badge (see project memory). Every real OBR
+// extension inspected for reference (Draw Steel Tools' own context-menu
+// icon, kgbergman/conditionmarkers' markers) references an actual hosted
+// file, never a data: URI. Colors are fixed per condition (not
+// hash-derived) since these are pre-made files, not generated at runtime;
+// Custom/Quick conditions (freeform text) fall back to a generic icon —
+// the actual text is still shown via the click-to-reveal context menu.
+const ICON_BY_CONDITION_TYPE: Record<string, string> = {
+  Bleeding: bleedingIcon,
+  Dazed: dazedIcon,
+  Frightened: frightenedIcon,
+  Grabbed: grabbedIcon,
+  Prone: proneIcon,
+  Restrained: restrainedIcon,
+  Slowed: slowedIcon,
+  Taunted: tauntedIcon,
+  Weakened: weakenedIcon,
 };
 
-function glyphFor(condition: HeroCondition): string {
-  const override = GLYPH_OVERRIDES[condition.type];
-  if (override) return override;
-  const name = conditionDisplayName(condition);
-  return (name.trim().slice(0, 2) || "?").toUpperCase();
-}
-
-/** Deterministic per-condition color so the same condition always renders the same way. */
-function colorFor(condition: HeroCondition): string {
-  const name = conditionDisplayName(condition);
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
-  }
-  return `hsl(${hash % 360}, 65%, 42%)`;
-}
-
-function buildBadgeSvgDataUri(condition: HeroCondition): string {
-  const glyph = glyphFor(condition);
-  const color = colorFor(condition);
-  const fontSize = glyph.length > 1 ? 22 : 28;
-  const svg =
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${BADGE_SVG_PX}" height="${BADGE_SVG_PX}" viewBox="0 0 ${BADGE_SVG_PX} ${BADGE_SVG_PX}">` +
-    `<circle cx="32" cy="32" r="29" fill="${color}" stroke="#14141c" stroke-width="4"/>` +
-    `<text x="32" y="33" text-anchor="middle" dominant-baseline="central" font-family="system-ui, sans-serif" font-size="${fontSize}" font-weight="700" fill="#fff">${glyph}</text>` +
-    `</svg>`;
-  // base64, not a percent-encoded ";utf8," data URI — OBR's own image loader
-  // does a real fetch() of this URL and choked on the non-standard MIME
-  // parameter (";utf8" isn't valid; should be ";charset=utf-8" at best),
-  // silently falling back to its broken-image placeholder for every badge.
-  const base64 = btoa(unescape(encodeURIComponent(svg)));
-  return `data:image/svg+xml;base64,${base64}`;
+function iconFor(condition: HeroCondition): string {
+  return ICON_BY_CONDITION_TYPE[condition.type] ?? genericIcon;
 }
 
 function buildBadgeItem(token: Image, condition: HeroCondition, slot: number, bounds: BoundingBox): Item {
@@ -92,7 +85,7 @@ function buildBadgeItem(token: Image, condition: HeroCondition, slot: number, bo
 
   const metadata: BadgeMetadata = { conditionId: condition.id, slot };
   return buildImage(
-    { width: pixelSize, height: pixelSize, mime: "image/svg+xml", url: buildBadgeSvgDataUri(condition) },
+    { width: pixelSize, height: pixelSize, mime: "image/svg+xml", url: iconFor(condition) },
     token.grid
   )
     .scale(token.scale)
