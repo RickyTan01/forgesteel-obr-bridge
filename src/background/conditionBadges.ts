@@ -3,21 +3,25 @@ import { getPluginId } from "../getPluginId";
 import type { HeroCondition } from "../warehouse/warehouseClient";
 import { conditionDisplayName } from "../logic/conditionDisplay";
 
-// Vite's default *.svg import already resolves to a URL string (see
-// vite/client.d.ts) — the file actually being emitted as a real, separately
+// PNG, not SVG: OBR's item-image loader (unlike its context-menu/action
+// icon loader) uploads scene images to a WebGL texture via
+// createImageBitmap(), which does not support vector formats at all —
+// confirmed live ("DOMException: The image could not be decoded" for every
+// badge). Vite's default *.svg/*.png import both resolve to a URL string
+// (see vite/client.d.ts); the file being emitted as a real, separately
 // hosted asset rather than inlined as a base64 data: URI is controlled by
 // build.assetsInlineLimit in vite.config.ts, not by anything at the import
 // site.
-import bleedingIcon from "./conditionIcons/bleeding.svg";
-import dazedIcon from "./conditionIcons/dazed.svg";
-import frightenedIcon from "./conditionIcons/frightened.svg";
-import grabbedIcon from "./conditionIcons/grabbed.svg";
-import proneIcon from "./conditionIcons/prone.svg";
-import restrainedIcon from "./conditionIcons/restrained.svg";
-import slowedIcon from "./conditionIcons/slowed.svg";
-import tauntedIcon from "./conditionIcons/taunted.svg";
-import weakenedIcon from "./conditionIcons/weakened.svg";
-import genericIcon from "./conditionIcons/generic.svg";
+import bleedingIcon from "./conditionIcons/bleeding.png";
+import dazedIcon from "./conditionIcons/dazed.png";
+import frightenedIcon from "./conditionIcons/frightened.png";
+import grabbedIcon from "./conditionIcons/grabbed.png";
+import proneIcon from "./conditionIcons/prone.png";
+import restrainedIcon from "./conditionIcons/restrained.png";
+import slowedIcon from "./conditionIcons/slowed.png";
+import tauntedIcon from "./conditionIcons/taunted.png";
+import weakenedIcon from "./conditionIcons/weakened.png";
+import genericIcon from "./conditionIcons/generic.png";
 
 const BADGE_METADATA_KEY = getPluginId("condition-badge");
 
@@ -43,18 +47,21 @@ export type PairedToken = {
 const BADGE_FRACTION = 0.3;
 const BADGE_SPACING_FRACTION = BADGE_FRACTION * 1.15;
 
-// Static files, not inline SVG data URIs — OBR's item-image loader routes
-// image URLs through its own fetch/CDN pipeline (same as every real image
-// on the scene, visible as the images.owlbear.rodeo resize/crop requests in
-// the network tab); a data: URI can't participate in that and fails with
-// "Unable to fetch image: Invalid URL" / "Network error may have occurred",
-// confirmed against a live badge (see project memory). Every real OBR
-// extension inspected for reference (Draw Steel Tools' own context-menu
-// icon, kgbergman/conditionmarkers' markers) references an actual hosted
-// file, never a data: URI. Colors are fixed per condition (not
-// hash-derived) since these are pre-made files, not generated at runtime;
+// Static files, not inline data URIs or generated-at-runtime SVG — OBR's
+// item-image loader routes image URLs through its own fetch/CDN pipeline
+// (same as every real image on the scene, visible as the images.owlbear.rodeo
+// resize/crop requests in the network tab) and decodes them via
+// createImageBitmap() for texture upload, neither of which a data: URI or an
+// SVG source can go through (see the import comment above and project
+// memory). Every real OBR extension inspected for reference
+// (kgbergman/conditionmarkers' markers) uses PNG for scene-item images for
+// the same reason. Colors are fixed per condition (not hash-derived) since
+// these are pre-made files, not generated at runtime, and there's no glyph
+// text baked in — hand-writing a PNG encoder (no image libraries available
+// in this environment) covers flat-color shapes but not font rendering.
 // Custom/Quick conditions (freeform text) fall back to a generic icon —
-// the actual text is still shown via the click-to-reveal context menu.
+// the actual condition name/text is always available via the click-to-reveal
+// context menu regardless of what the badge itself looks like.
 const ICON_BY_CONDITION_TYPE: Record<string, string> = {
   Bleeding: bleedingIcon,
   Dazed: dazedIcon,
@@ -85,7 +92,7 @@ function buildBadgeItem(token: Image, condition: HeroCondition, slot: number, bo
 
   const metadata: BadgeMetadata = { conditionId: condition.id, slot };
   return buildImage(
-    { width: pixelSize, height: pixelSize, mime: "image/svg+xml", url: iconFor(condition) },
+    { width: pixelSize, height: pixelSize, mime: "image/png", url: iconFor(condition) },
     token.grid
   )
     .scale(token.scale)
