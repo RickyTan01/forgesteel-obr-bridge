@@ -60,14 +60,14 @@ const BADGE_SPACING_GRID_FRACTION = BADGE_SIZE_GRID_FRACTION * 1.15;
 // SVG source can go through (see the import comment above and project
 // memory). Every real OBR extension inspected for reference
 // (kgbergman/conditionmarkers' markers) uses PNG for scene-item images for
-// the same reason. Colors are fixed per condition (not hash-derived) since
-// these are pre-made files, not generated at runtime; each also has a
-// single-letter glyph baked in via a small hand-rolled 5x7 bitmap font (no
-// image/font libraries were available in this environment — the one-off
-// generator script isn't checked into the repo). Custom/Quick conditions
-// (freeform text) fall back to a generic "?" icon — the actual condition
-// name/text is always available via the click-to-reveal context menu
-// regardless of what the badge itself looks like.
+// the same reason. Provided art (user-supplied, 1024x1024 with an existing
+// alpha channel — no background removal needed); "generic" is the provided
+// "Surprised" icon repurposed as the Custom/Quick fallback, since Forge
+// Steel has no "Surprised" condition. The declared width/height in
+// buildBadgeItem is a logical size for grid/dpi math, not the source
+// file's real resolution (confirmed against kgbergman/conditionmarkers,
+// which does the same) — the browser downscales the real 1024x1024 image
+// to fit, so no resizing was needed either.
 const ICON_BY_CONDITION_TYPE: Record<string, string> = {
   Bleeding: bleedingIcon,
   Dazed: dazedIcon,

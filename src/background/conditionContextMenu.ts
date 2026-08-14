@@ -34,11 +34,21 @@ export function registerConditionContextMenu(): void {
           icon: `${import.meta.env.BASE_URL}action-icon.svg`,
           label: "View Conditions",
           filter: {
-            // Confirmed against owlbear-rodeo/initiative-tracker's own
-            // context menu filter (official, first-party): `value: undefined`
-            // checks "this metadata key is absent/undefined" — inverted here
-            // with operator "!=" to mean "key present", i.e. a paired token.
-            every: [{ key: ["metadata", LINK_KEY], value: undefined, operator: "!=" }],
+            // Matches owlbear-rodeo/initiative-tracker's own context menu
+            // filter shape (official, first-party) as closely as possible,
+            // having ruled out everything else while the menu wasn't
+            // appearing: layer CHARACTER-or-MOUNT (coordinator "||" pairs
+            // just those two; the rest AND together), type IMAGE, and our
+            // own link-metadata check last. `value: undefined` on that last
+            // entry checks "this metadata key is absent/undefined" —
+            // inverted here with operator "!=" to mean "key present", i.e.
+            // a paired token.
+            every: [
+              { key: "layer", value: "CHARACTER", coordinator: "||" },
+              { key: "layer", value: "MOUNT" },
+              { key: "type", value: "IMAGE" },
+              { key: ["metadata", LINK_KEY], value: undefined, operator: "!=" },
+            ],
           },
         },
       ],
