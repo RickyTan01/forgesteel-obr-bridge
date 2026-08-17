@@ -88,6 +88,14 @@ button:disabled {
   color: #8fd694;
 }
 
+.link-clear {
+  background: none;
+  padding: 2px 4px;
+  font-size: 11px;
+  color: #a5a6b8;
+  text-decoration: underline;
+}
+
 .pool-row {
   display: flex;
   align-items: flex-end;

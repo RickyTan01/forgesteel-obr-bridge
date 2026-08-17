@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import axios from "axios";
 import OBR, { Item } from "@owlbear-rodeo/sdk";
 import { WarehouseClient, HeroSummary } from "../warehouse/warehouseClient";
 import { WarehouseConfig } from "../warehouse/warehouseConfig";
 import { getHeroTokens, writeDstHeroStats } from "../obr/drawSteelTokens";
-import { readBridgeLink, writeBridgeLink, findAutoMatch, BridgeLink } from "../obr/bridgeLink";
+import { readBridgeLink, writeBridgeLink, clearBridgeLink, findAutoMatch, BridgeLink } from "../obr/bridgeLink";
 import { getActivePoolLabel, setActivePoolLabel } from "../obr/roomPool";
 import { getLastSyncedAt, setLastSyncedAt as writeLastSyncedAt } from "../obr/syncStatus";
 import { heroStateToDstFields } from "../logic/conversion";
@@ -28,6 +29,24 @@ type TokenRow = {
   item: Item;
   link?: BridgeLink;
 };
+
+/** Short, human-readable cause — same status/message convention as warehouseClient's testConnection. */
+function describeError(err: unknown): string {
+  if (axios.isAxiosError(err)) {
+    return `${err.response?.status ?? "?"} ${err.response?.statusText ?? err.message}`;
+  }
+  return err instanceof Error ? err.message : String(err);
+}
+
+/** Caps the toast at 3 named failures so one bad sync run doesn't produce an unreadable wall of text. */
+function summarizeFailures(failures: { name: string; message: string }[]): string {
+  if (failures.length === 1) {
+    return `Sync failed for ${failures[0].name} (${failures[0].message})`;
+  }
+  const preview = failures.slice(0, 3).map((f) => `${f.name} (${f.message})`).join(", ");
+  const rest = failures.length - 3;
+  return `Sync failed for ${failures.length} tokens: ${preview}${rest > 0 ? `, +${rest} more` : ""}`;
+}
 
 type Props = {
   config: WarehouseConfig;
@@ -126,6 +145,7 @@ export function SyncPanel({ config, onOpenSettings }: Props) {
     setSyncing(true);
     let ok = 0;
     let failed = 0;
+    const failures: { name: string; message: string }[] = [];
 
     for (const row of targetRows) {
       if (!row.link) continue;
@@ -144,10 +164,16 @@ export function SyncPanel({ config, onOpenSettings }: Props) {
       } catch (err) {
         console.error(`Sync failed for token ${row.item.id}`, err);
         failed++;
+        failures.push({ name: row.item.name, message: describeError(err) });
       }
     }
 
     setStatus(`Synced ${ok} token${ok === 1 ? "" : "s"}${failed ? `, ${failed} failed` : ""}.`);
+    if (failures.length > 0) {
+      OBR.notification.show(summarizeFailures(failures), "ERROR").catch((err) =>
+        console.error("Failed to show sync-failure notification", err)
+      );
+    }
     const now = new Date();
     setLastSyncedAt(now);
     if (ok > 0) {
@@ -199,6 +225,11 @@ export function SyncPanel({ config, onOpenSettings }: Props) {
     await refresh();
   };
 
+  const unlink = async (itemId: string) => {
+    await clearBridgeLink(itemId);
+    await refresh();
+  };
+
   const syncNow = () => syncRows(rows);
 
   const savePool = async () => {
@@ -227,9 +258,14 @@ export function SyncPanel({ config, onOpenSettings }: Props) {
             <div key={row.item.id} className="token-row">
               <span className="token-name">{name}</span>
               {row.link ? (
-                <span className={`link-status ${row.link.source}`}>
-                  {row.link.source === "auto" ? "auto-linked" : "linked"}
-                </span>
+                <>
+                  <span className={`link-status ${row.link.source}`}>
+                    {row.link.source === "auto" ? "auto-linked" : "linked"}
+                  </span>
+                  <button type="button" className="link-clear" onClick={() => unlink(row.item.id)}>
+                    Unlink
+                  </button>
+                </>
               ) : (
                 <select defaultValue="" onChange={(e) => manualLink(row.item.id, e.target.value)}>
                   <option value="" disabled>
