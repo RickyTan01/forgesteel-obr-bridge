@@ -20,6 +20,19 @@ Warehouse → OBR.
 - GM/player aware — only the GM configures Warehouse credentials and
   controls sync; players get a read-only view
 
+## Screenshots
+
+Sync panel with an auto-linked token, plus a Draw Steel Tools token
+context menu showing the bridge's condition badges and the "View
+Conditions" flyout:
+
+![Sync panel, condition badges, and the View Conditions flyout](docs/screenshots/sync-panel-and-conditions.png)
+
+The same token's Draw Steel Tools "Edit Hero" flyout, showing the
+stamina/piety/surges/recoveries fields the bridge keeps in sync:
+
+![Draw Steel Tools' Edit Hero flyout showing synced stats](docs/screenshots/edit-hero-stats.png)
+
 ## How it works
 
 1. Forge Steel saves a hero to the Warehouse (a small REST API that
@@ -74,6 +87,21 @@ zeroed out.
 - No UI for resolving an ambiguous auto-link match (same name, multiple
   heroes)
 - Condition markers show name + duration only, not full rules text
+
+## Acknowledgments
+
+This extension writes onto tokens managed by
+[**Draw Steel Tools**](https://draw-steel-tools.seamus-finlayson.ca/),
+an excellent Owlbear Rodeo extension for Draw Steel by
+[**Seamus Finlayson**](https://github.com/SeamusFinlayson)
+([source](https://github.com/SeamusFinlayson/draw-steel-tools-2)). Draw
+Steel Tools owns the token stat bar/flyout UI shown above (stamina,
+recoveries, surges, heroic resource, etc.) and must be installed
+alongside this bridge — the bridge only fills in values on tokens Draw
+Steel Tools already manages, it doesn't provide that UI itself. The
+condition-badge positioning math in this bridge is also ported directly
+from Draw Steel Tools' own overlay math, credited in code comments in
+`src/background/conditionBadges.ts`.
 
 ## Development
 
