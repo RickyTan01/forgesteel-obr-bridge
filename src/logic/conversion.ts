@@ -26,7 +26,7 @@ export function heroStateToDstFields(
 
   if (derived.staminaMax !== undefined) {
     fields.staminaMaximum = derived.staminaMax;
-    fields.stamina = derived.staminaMax - state.staminaDamage + state.staminaTemp;
+    fields.stamina = derived.staminaMax - state.staminaDamage;
   }
   if (derived.recoveriesMax !== undefined) {
     fields.recoveries = derived.recoveriesMax - state.recoveriesUsed;
