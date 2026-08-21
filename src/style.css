@@ -102,6 +102,14 @@ button:disabled {
   gap: 8px;
 }
 
+.pool-value {
+  background: #3c3e4d;
+  border: 1px solid #52546a;
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: #e6e6ee;
+}
+
 .empty {
   color: #7d7e91;
   font-style: italic;

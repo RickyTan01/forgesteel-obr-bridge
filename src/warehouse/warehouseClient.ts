@@ -106,6 +106,12 @@ export class WarehouseClient {
     }
   }
 
+  /** The Warehouse account this config's token authenticates as — used as the room's active-pool label. */
+  async getConnectedUsername(): Promise<string> {
+    const response = await this.api.get("/me");
+    return response.data.logged_in_as;
+  }
+
   /** Lightweight list — matches Forge Steel's own `fields=name,folder` partial-fetch pattern. */
   async getHeroSummaries(): Promise<HeroSummary[]> {
     const response = await this.api.get("/data/forgesteel-heroes", {

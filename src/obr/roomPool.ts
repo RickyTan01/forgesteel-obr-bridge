@@ -4,8 +4,10 @@ import { getPluginId } from "../getPluginId";
 const POOL_KEY = getPluginId("activePool");
 
 /**
- * Just a human label ("Campaign A" / "Campaign B") the GM sets once per room,
- * so every client's bridge instance shows the same context. The actual
+ * The connected Warehouse account's username, mirrored here by the GM's
+ * SyncPanel (see getConnectedUsername in warehouseClient.ts) so every
+ * client's bridge instance — including players, who have no Warehouse
+ * access of their own — shows the same active-pool context. The actual
  * Warehouse API token that label maps to lives in the GM's own localStorage
  * (see warehouseConfig.ts) — never written here.
  */

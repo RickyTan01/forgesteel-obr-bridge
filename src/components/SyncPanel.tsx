@@ -73,19 +73,34 @@ export function SyncPanel({ config, onOpenSettings }: Props) {
     rowsRef.current = rows;
   }, [rows]);
 
+  // The pool label is derived from the connected Warehouse account, not typed
+  // by the GM — this keeps every client (including players, who can't reach
+  // the Warehouse API themselves) showing the campaign that's actually wired
+  // up, rather than a free-text label that can drift from reality.
+  const refreshPoolLabel = async () => {
+    try {
+      const username = await client.getConnectedUsername();
+      setPoolLabel(username);
+      await setActivePoolLabel(username);
+    } catch (err) {
+      console.error("Failed to fetch connected Warehouse account", err);
+      const stored = await getActivePoolLabel();
+      setPoolLabel(stored ?? "");
+    }
+  };
+
   const refresh = async () => {
-    const [label, tokens, heroSummaries, synced, conditionsSync] = await Promise.all([
-      getActivePoolLabel(),
+    const [tokens, heroSummaries, synced, conditionsSync] = await Promise.all([
       getHeroTokens(),
       client.getHeroSummaries().catch(() => [] as HeroSummary[]),
       getLastSyncedAt(),
       getConditionsSyncEnabled(),
     ]);
-    setPoolLabel(label ?? "");
     setHeroes(heroSummaries);
     setRows(tokens.map((item) => ({ item, link: readBridgeLink(item) })));
     setLastSyncedAt(synced);
     setConditionsSyncEnabledState(conditionsSync);
+    await refreshPoolLabel();
   };
 
   // Local-only rescan — no Warehouse call. Reads whatever hero tokens exist
@@ -232,10 +247,6 @@ export function SyncPanel({ config, onOpenSettings }: Props) {
 
   const syncNow = () => syncRows(rows);
 
-  const savePool = async () => {
-    await setActivePoolLabel(poolLabel);
-  };
-
   const linkedCount = rows.filter((r) => r.link).length;
 
   return (
@@ -243,7 +254,7 @@ export function SyncPanel({ config, onOpenSettings }: Props) {
       <div className="pool-row">
         <label>
           <span className="label">Active Pool</span>
-          <input value={poolLabel} onChange={(e) => setPoolLabel(e.target.value)} onBlur={savePool} />
+          <span className="pool-value">{poolLabel || "—"}</span>
         </label>
         <button type="button" onClick={onOpenSettings}>
           Warehouse Settings
