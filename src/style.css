@@ -110,6 +110,22 @@ button:disabled {
   color: #e6e6ee;
 }
 
+.profile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.profile-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: #33354420;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+
 .empty {
   color: #7d7e91;
   font-style: italic;

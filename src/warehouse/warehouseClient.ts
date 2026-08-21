@@ -93,11 +93,11 @@ export class WarehouseClient {
   }
 
   /** Cheap authenticated call for the settings form's "Test Connection" button. */
-  async testConnection(): Promise<{ ok: true } | { ok: false; message: string }> {
+  async testConnection(): Promise<{ ok: true; username: string } | { ok: false; message: string }> {
     try {
       await this.authenticate();
-      await this.api.get("/me");
-      return { ok: true };
+      const response = await this.api.get("/me");
+      return { ok: true, username: response.data.logged_in_as };
     } catch (err) {
       const message = axios.isAxiosError(err)
         ? `[${err.response?.status ?? "?"}] ${err.response?.data?.message ?? err.message}`
